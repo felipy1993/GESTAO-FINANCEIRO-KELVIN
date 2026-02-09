@@ -1,0 +1,17 @@
+{
+  "name": "Gestão Financeira Kelvin",
+  "short_name": "Financeiro Kelvin",
+  "description": "Sistema completo de gestão financeira e controle de vendas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, AlertTriangle, CheckCircle, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, AlertTriangle, CheckCircle, CalendarDays, Maximize, Minimize } from 'lucide-react';
 import { ViewState, Sale, PaymentStatus } from '../../types';
 
 interface LayoutProps {
@@ -40,6 +40,28 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [hasPlayedSound, setHasPlayedSound] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Sync fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(e => {
+        console.error(`Error attempting to enable full-screen mode: ${e.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   // Calculate Overdue Items
   const overdueItems = useMemo(() => {
@@ -111,7 +133,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
       case 'PRODUCTS': return 'Gerenciamento de Produtos';
       case 'CUSTOMERS': return 'Meus Clientes';
       case 'AGENDA': return 'Agenda de Compromissos';
-      default: return 'Comércio Pro';
+      default: return 'Gestão Financeira Kelvin';
     }
   };
 
@@ -119,11 +141,14 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
       {/* Sidebar - Desktop */}
       <aside className="hidden md:flex flex-col w-64 border-r border-slate-800 bg-slate-900/50 backdrop-blur-xl shrink-0">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent transform transition-all hover:scale-105 cursor-default">
-            Comércio Pro
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">Gestão Inteligente</p>
+        <div className="p-6 flex items-center space-x-3">
+          <img src="/logo.png" alt="Logo" className="w-10 h-10 rounded-lg object-contain" />
+          <div>
+            <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent transform transition-all hover:scale-105 cursor-default leading-tight">
+              Financeiro Kelvin
+            </h1>
+            <p className="text-[10px] text-slate-500">Gestão Inteligente</p>
+          </div>
         </div>
 
         <nav className="flex-1 px-4 space-y-2">
@@ -165,7 +190,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
               C
             </div>
             <div>
-              <p className="text-slate-200 font-medium">Comerciante</p>
+              <p className="text-slate-200 font-medium">Financeiro Kelvin</p>
               <p className="text-xs text-emerald-500">Online</p>
             </div>
           </div>
@@ -174,8 +199,18 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
 
       {/* Mobile Header */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 z-50 shadow-lg">
-        <h1 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">Comércio Pro</h1>
+        <div className="flex items-center gap-2">
+          <img src="/icon.png" alt="Logo" className="w-8 h-8 rounded-lg" />
+          <h1 className="text-lg font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">Financeiro Kelvin</h1>
+        </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={toggleFullScreen}
+            className="text-slate-300 p-2 hover:bg-slate-800 rounded-lg transition-colors"
+            title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+          >
+            {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+          </button>
           {/* Mobile Bell */}
           <button 
              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
@@ -238,6 +273,15 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
            <h2 className="text-xl font-bold text-slate-200 tracking-tight">{getPageTitle()}</h2>
            
            <div className="flex items-center gap-4">
+              {/* Fullscreen Toggle */}
+              <button 
+                onClick={toggleFullScreen}
+                className="p-2 rounded-full text-slate-400 hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                title={isFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+              >
+                {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
+              </button>
+
               {/* Notifications Desktop */}
               <div className="relative">
                 <button 

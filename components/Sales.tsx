@@ -60,8 +60,11 @@ const ReceiptModal = ({ sale, onClose }: { sale: Sale; onClose: () => void }) =>
         
         <div className="p-8 font-mono text-sm leading-relaxed" id="printable-receipt">
           <div className="text-center mb-6 border-b border-slate-300 pb-4">
-            <h2 className="text-xl font-bold uppercase tracking-wider mb-1">Comércio Pro</h2>
-            <p className="text-xs text-slate-500">Comprovante de Venda</p>
+            <div className="flex flex-col items-center mb-4">
+              <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain mb-2" />
+              <h2 className="text-xl font-bold uppercase tracking-wider mb-1">Financeiro Kelvin</h2>
+              <p className="text-xs text-slate-500">Gestão Inteligente</p>
+            </div>
             <p className="text-xs text-slate-400 mt-1">{new Date(sale.date).toLocaleString('pt-BR')}</p>
           </div>
 
