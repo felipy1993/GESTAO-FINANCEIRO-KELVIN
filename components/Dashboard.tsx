@@ -1,0 +1,294 @@
+import React, { useMemo } from 'react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell
+} from 'recharts';
+import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User } from 'lucide-react';
+import { Sale, Product, PaymentStatus } from '../types';
+
+interface DashboardProps {
+  sales: Sale[];
+  products: Product[];
+  showToast: (type: 'success' | 'error' | 'info', message: string) => void;
+}
+
+const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
+
+export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast }) => {
+  
+  // --- Metrics Calculation ---
+  const metrics = useMemo(() => {
+    const totalRevenue = sales.reduce((acc, sale) => acc + sale.totalPrice, 0);
+    const totalCost = sales.reduce((acc, sale) => acc + sale.totalCost, 0);
+    const netProfit = totalRevenue - totalCost;
+    const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+    
+    // Calculate pending/overdue sales
+    const now = Date.now();
+    const pendingSales = sales.filter(s => s.status === PaymentStatus.PENDING);
+    const pendingTotal = pendingSales.reduce((acc, s) => {
+        const totalToInstall = s.totalPrice - (s.downPayment || 0);
+        const installmentValue = totalToInstall / (s.installments || 1);
+        const paidAmount = installmentValue * (s.paidInstallments || 0);
+        const remaining = totalToInstall - paidAmount;
+        
+        return acc + remaining;
+    }, 0);
+
+    // Advanced Alert Logic: Expand Sales into Installments
+    let allPendingInstallments: Array<{
+      id: string; // Sale ID + Installment Number
+      saleId: string;
+      customerName: string;
+      installmentNumber: number;
+      totalInstallments: number;
+      value: number;
+      dueDate: number;
+    }> = [];
+
+    pendingSales.forEach(sale => {
+      if (!sale.dueDate) return;
+
+      const totalToInstall = sale.totalPrice - (sale.downPayment || 0);
+      const installments = sale.installments || 1;
+      const installmentValue = totalToInstall / installments;
+      const baseDate = new Date(sale.dueDate);
+
+      for (let i = 0; i < installments; i++) {
+        if ((sale.paidInstallments || 0) > i) continue;
+
+        const date = new Date(baseDate);
+        date.setMonth(date.getMonth() + i);
+        
+        allPendingInstallments.push({
+          id: `${sale.id}-${i+1}`,
+          saleId: sale.id,
+          customerName: sale.customerName || 'Cliente',
+          installmentNumber: i + 1,
+          totalInstallments: installments,
+          value: installmentValue,
+          dueDate: date.getTime()
+        });
+      }
+    });
+
+    const overdueInstallments = allPendingInstallments.filter(i => i.dueDate < now);
+    const upcomingInstallments = allPendingInstallments.filter(i => i.dueDate >= now && i.dueDate <= now + (7 * 24 * 60 * 60 * 1000));
+
+    const alerts = [...overdueInstallments, ...upcomingInstallments].sort((a,b) => a.dueDate - b.dueDate);
+
+    return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal };
+  }, [sales]);
+
+  // --- Charts Data ---
+  const salesByDate = useMemo(() => {
+    const grouped: Record<string, any> = {};
+    const sortedSales = [...sales].sort((a, b) => a.date - b.date);
+    
+    sortedSales.forEach(sale => {
+      const date = new Date(sale.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      if (!grouped[date]) grouped[date] = { date, revenue: 0, profit: 0 };
+      grouped[date].revenue += sale.totalPrice;
+      grouped[date].profit += sale.totalProfit;
+    });
+    return Object.values(grouped).slice(-7); 
+  }, [sales]);
+
+  const salesByCategory = useMemo(() => {
+    const grouped: Record<string, number> = {};
+    
+    sales.forEach(sale => {
+      if (sale.type === 'COMMISSION') {
+        const cat = 'Comissões';
+        grouped[cat] = (grouped[cat] || 0) + sale.totalProfit;
+      } else {
+        sale.items.forEach(item => {
+          const product = products.find(p => p.id === item.productId);
+          const cat = product ? product.category : 'Outros';
+          const itemProfit = item.totalPrice - item.totalCost;
+          grouped[cat] = (grouped[cat] || 0) + itemProfit;
+        });
+      }
+    });
+
+    return Object.keys(grouped)
+      .map(name => ({ name, value: grouped[name] }))
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value); 
+  }, [sales, products]);
+
+  return (
+    <div className="space-y-8 max-w-7xl mx-auto pb-10">
+      
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-100 drop-shadow-lg">Painel de Controle</h2>
+          <p className="text-slate-400">Visão geral do desempenho do seu negócio</p>
+        </div>
+      </div>
+
+      {/* Alerts Section - 3D Look */}
+      {metrics.alerts.length > 0 && (
+         <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black border-t border-l border-slate-700/50 shadow-[0_10px_40px_-10px_rgba(225,29,72,0.3)] rounded-3xl p-6 relative overflow-hidden animate-fade-in-up transform transition-all hover:-translate-y-1">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-500 to-rose-900"></div>
+            <h3 className="text-lg font-bold text-slate-100 mb-4 flex items-center gap-2">
+              <div className="p-2 bg-rose-500/20 rounded-lg shadow-inner shadow-rose-500/10">
+                 <AlertTriangle className="text-rose-500" size={20} />
+              </div>
+              Próximos Vencimentos & Atrasos
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+               {metrics.alerts.map(inst => {
+                 const daysDiff = Math.ceil((inst.dueDate - Date.now()) / (1000 * 60 * 60 * 24));
+                 const isOverdue = daysDiff < 0;
+                 
+                 return (
+                   <div key={inst.id} className={`p-4 rounded-xl border border-slate-700/50 flex justify-between items-center transition-all duration-300 hover:scale-[1.02] hover:shadow-lg relative overflow-hidden group ${
+                     isOverdue ? 'bg-gradient-to-br from-rose-950/40 to-slate-900' : 'bg-gradient-to-br from-amber-950/40 to-slate-900'
+                   }`}>
+                      {/* Glossy effect */}
+                      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                      
+                      <div>
+                        <div className="flex items-center gap-2 text-slate-200 font-bold mb-1">
+                          <User size={16} className="text-slate-500" />
+                          {inst.customerName}
+                        </div>
+                        <p className="text-xl font-bold text-slate-100 drop-shadow-md">R$ {inst.value.toFixed(2)}</p>
+                        <p className="text-xs text-slate-400 mt-1">Parcela {inst.installmentNumber}/{inst.totalInstallments}</p>
+                      </div>
+                      <div className="text-right z-10">
+                        <div className={`text-[10px] font-black px-2 py-1 rounded-md mb-1 inline-block shadow-lg ${isOverdue ? 'bg-rose-600 text-white shadow-rose-900/50' : 'bg-amber-500 text-black shadow-amber-900/50'}`}>
+                          {isOverdue ? `ATRASADO ${Math.abs(daysDiff)} DIA(S)` : `VENCE EM ${daysDiff} DIA(S)`}
+                        </div>
+                        <p className="text-slate-500 text-xs">{new Date(inst.dueDate).toLocaleDateString('pt-BR')}</p>
+                      </div>
+                   </div>
+                 )
+               })}
+            </div>
+         </div>
+      )}
+
+      {/* KPI Cards - 3D ANIMATED */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Revenue Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-slate-700/50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_60px_-12px_rgba(16,185,129,0.15)]">
+          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <DollarSign size={100} />
+          </div>
+          <p className="text-slate-400 text-sm font-medium tracking-wide">Receita Total</p>
+          <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 to-emerald-500 mt-2 drop-shadow-sm">
+            R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <div className="mt-6 flex items-center text-sm text-emerald-300 font-bold bg-emerald-500/10 w-fit px-3 py-1.5 rounded-lg border border-emerald-500/20 shadow-inner shadow-emerald-500/10">
+            <TrendingUp size={14} className="mr-1" />
+            Vendas Brutas
+          </div>
+        </div>
+
+        {/* Profit Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-slate-700/50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_60px_-12px_rgba(59,130,246,0.15)]">
+          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <Wallet size={100} />
+          </div>
+          <p className="text-slate-400 text-sm font-medium tracking-wide">Lucro Líquido</p>
+          <h3 className={`text-4xl font-extrabold mt-2 drop-shadow-sm text-transparent bg-clip-text ${metrics.netProfit >= 0 ? 'bg-gradient-to-r from-emerald-200 to-emerald-500' : 'bg-gradient-to-r from-rose-200 to-rose-500'}`}>
+            R$ {metrics.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="mt-6 text-sm text-slate-500 font-medium">Margem: <span className="text-slate-200 font-bold">{metrics.margin.toFixed(1)}%</span></p>
+        </div>
+
+        {/* Pending Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-slate-700/50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_60px_-12px_rgba(245,158,11,0.15)]">
+           <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <Calendar size={100} />
+          </div>
+          <p className="text-slate-400 text-sm font-medium tracking-wide">A Receber (Fiado)</p>
+          <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 mt-2 drop-shadow-sm">
+            R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <div className="mt-6 flex items-center text-sm text-slate-400">
+             <span className="bg-slate-800 px-2 py-1 rounded-md border border-slate-700 text-slate-300 font-bold mr-2">{metrics.alerts.length}</span> parcelas pendentes
+          </div>
+        </div>
+      </div>
+
+      {/* Charts Section - 3D Containers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
+          {/* Top highlight for 3D effect */}
+          <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-slate-600 to-transparent opacity-50"></div>
+          
+          <h3 className="text-lg font-bold text-slate-100 mb-6 drop-shadow-md">Tendência de Receita e Lucro</h3>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={salesByDate}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} dy={10} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `R$${value}`} />
+                <Tooltip 
+                  cursor={{fill: '#1e293b', opacity: 0.4}}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f1f5f9', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                  itemStyle={{ color: '#f1f5f9' }}
+                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`]}
+                />
+                <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[6, 6, 0, 0]} name="Receita" />
+                <Bar dataKey="profit" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} name="Lucro" />
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                  </linearGradient>
+                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.3}/>
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
+          <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-slate-600 to-transparent opacity-50"></div>
+          
+          <h3 className="text-lg font-bold text-slate-100 mb-6 drop-shadow-md">Lucro por Categoria</h3>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={salesByCategory}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  {salesByCategory.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} style={{filter: 'drop-shadow(0px 3px 3px rgba(0,0,0,0.3))'}} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f1f5f9', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                   formatter={(value: number) => [`R$ ${value.toFixed(2)}`]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-2 justify-center mt-4">
+              {salesByCategory.map((entry, index) => (
+                <div key={index} className="flex items-center text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded-full border border-slate-700/50">
+                  <span className="w-2 h-2 rounded-full mr-1 shadow-[0_0_5px]" style={{ backgroundColor: COLORS[index % COLORS.length], boxShadow: `0 0 8px ${COLORS[index % COLORS.length]}` }}></span>
+                  {entry.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
