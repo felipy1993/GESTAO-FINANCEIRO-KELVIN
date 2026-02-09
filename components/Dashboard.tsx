@@ -3,8 +3,10 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User } from 'lucide-react';
+import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download } from 'lucide-react';
 import { Sale, Product, PaymentStatus } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface DashboardProps {
   sales: Sale[];
@@ -15,6 +17,105 @@ interface DashboardProps {
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast }) => {
+
+  // --- Export Functions ---
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF();
+      const dateStr = new Date().toLocaleDateString('pt-BR');
+      
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(16, 185, 129); // Emerald-500
+      doc.text('Relatório Financeiro - Kelvin', 14, 22);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Gerado em: ${dateStr}`, 14, 30);
+      
+      // Metrics Section
+      const totalRevenue = sales.reduce((acc, s) => acc + s.totalPrice, 0);
+      const totalCost = sales.reduce((acc, s) => acc + s.totalCost, 0);
+      const netProfit = totalRevenue - totalCost;
+      
+      autoTable(doc, {
+        startY: 40,
+        head: [['Métrica', 'Valor']],
+        body: [
+          ['Receita Total', `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Custo Total', `R$ ${totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Lucro Líquido', `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`],
+          ['Margem de Lucro', `${totalRevenue > 0 ? ((netProfit / totalRevenue) * 100).toFixed(2) : 0}%`],
+        ],
+        theme: 'striped',
+        headStyles: { fillColor: [16, 185, 129] }
+      });
+
+      // Sales Table
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.text('Detalhamento de Vendas', 14, (doc as any).lastAutoTable.finalY + 15);
+
+      const salesData = sales.map(s => [
+        new Date(s.date).toLocaleDateString('pt-BR'),
+        s.customerName || 'N/A',
+        s.type === 'COMMISSION' ? 'Comissão' : 'Venda',
+        `R$ ${s.totalPrice.toFixed(2)}`,
+        s.status === PaymentStatus.PAID ? 'Pago' : 'Pendente'
+      ]);
+
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Data', 'Cliente', 'Tipo', 'Total', 'Status']],
+        body: salesData,
+        theme: 'grid',
+        headStyles: { fillColor: [51, 65, 85] }
+      });
+
+      doc.save(`relatorio-financeiro-${dateStr.replace(/\//g, '-')}.pdf`);
+      showToast('success', 'PDF gerado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao gerar PDF:', error);
+      showToast('error', 'Erro ao gerar PDF');
+    }
+  };
+
+  const exportToCSV = () => {
+    try {
+      const headers = ['Data', 'Cliente', 'Tipo', 'Total (R$)', 'Custo (R$)', 'Lucro (R$)', 'Status'];
+      const rows = sales.map(s => [
+        new Date(s.date).toLocaleDateString('pt-BR'),
+        s.customerName || '',
+        s.type,
+        s.totalPrice.toFixed(2),
+        s.totalCost.toFixed(2),
+        s.totalProfit.toFixed(2),
+        s.status
+      ]);
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      const dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      
+      link.setAttribute('href', url);
+      link.setAttribute('download', `vendas-kelvin-${dateStr}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showToast('success', 'CSV exportado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao exportar CSV:', error);
+      showToast('error', 'Erro ao exportar CSV');
+    }
+  };
   
   // --- Metrics Calculation ---
   const metrics = useMemo(() => {
@@ -125,6 +226,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
         <div>
           <h2 className="text-3xl font-bold text-slate-100 drop-shadow-lg">Painel de Controle</h2>
           <p className="text-slate-400">Visão geral do desempenho do seu negócio</p>
+        </div>
+        
+        <div className="flex flex-wrap gap-3">
+          <button 
+            onClick={exportToPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition-all shadow-lg active:scale-95"
+          >
+            <FileDown size={18} className="text-rose-400" />
+            <span>Exportar PDF</span>
+          </button>
+          
+          <button 
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition-all shadow-lg active:scale-95"
+          >
+            <Download size={18} className="text-emerald-400" />
+            <span>Exportar CSV</span>
+          </button>
         </div>
       </div>
 
