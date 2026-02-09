@@ -101,21 +101,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
-                  {isLogin ? 'Entrar' : 'Cadastrar'}
-                  {isLogin ? <LogIn size={18} className="group-hover:translate-x-1 transition-transform" /> : <UserPlus size={18} />}
+                  Entrar
+                  <LogIn size={18} className="group-hover:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
-
-          <div className="mt-8 pt-6 border-t border-slate-800 space-y-4 text-center">
-            <button 
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-slate-400 hover:text-emerald-400 transition-colors font-medium"
-            >
-              {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça Login'}
-            </button>
-          </div>
         </div>
         
         <p className="text-center mt-8 text-slate-600 text-xs">
