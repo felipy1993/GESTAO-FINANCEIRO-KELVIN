@@ -144,7 +144,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
               type="text" 
               placeholder="Buscar por nome, tel ou cidade..." 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
               className="w-full bg-slate-900 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 transition-colors"
             />
           </div>
@@ -260,7 +260,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                     autoFocus
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
                     value={formData.name}
-                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})}
                     placeholder="Ex: Maria Silva"
                   />
                 </div>
@@ -269,7 +269,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                   <input 
                     className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
                     value={formData.phone}
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
+                    onChange={e => setFormData({...formData, phone: e.target.value.toUpperCase()})}
                     placeholder="(00) 90000-0000"
                   />
                 </div>
@@ -301,7 +301,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                      <input 
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
                       value={formData.city}
-                      onChange={e => setFormData({...formData, city: e.target.value})}
+                      onChange={e => setFormData({...formData, city: e.target.value.toUpperCase()})}
                       placeholder="Cidade"
                     />
                   </div>
@@ -313,7 +313,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                     <input 
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
                       value={formData.address}
-                      onChange={e => setFormData({...formData, address: e.target.value})}
+                      onChange={e => setFormData({...formData, address: e.target.value.toUpperCase()})}
                       placeholder="Nome da Rua"
                     />
                   </div>
@@ -322,7 +322,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                     <input 
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
                       value={formData.number}
-                      onChange={e => setFormData({...formData, number: e.target.value})}
+                      onChange={e => setFormData({...formData, number: e.target.value.toUpperCase()})}
                       placeholder="Nº"
                     />
                   </div>
@@ -349,7 +349,7 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                 <textarea 
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none h-20 resize-none"
                   value={formData.notes}
-                  onChange={e => setFormData({...formData, notes: e.target.value})}
+                  onChange={e => setFormData({...formData, notes: e.target.value.toUpperCase()})}
                   placeholder="Ponto de referência, preferências..."
                 />
               </div>

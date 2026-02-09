@@ -53,6 +53,13 @@
       ::-webkit-scrollbar-thumb:hover {
         background: #475569; 
       }
+      input, textarea {
+        text-transform: uppercase;
+      }
+      /* Permitir que placeholders continuem normais ou também fiquem em maiúsculo */
+      input::placeholder, textarea::placeholder {
+        text-transform: none;
+      }
     </style>
   <script type="importmap">
 {

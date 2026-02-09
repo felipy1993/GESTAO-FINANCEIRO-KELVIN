@@ -92,7 +92,7 @@ export const Products: React.FC<ProductsProps> = ({ products, onAddProduct, onUp
               type="text" 
               placeholder="Buscar produto..." 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all shadow-inner"
             />
           </div>
@@ -217,7 +217,7 @@ export const Products: React.FC<ProductsProps> = ({ products, onAddProduct, onUp
                   autoFocus
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 shadow-inner"
                   value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({...formData, name: e.target.value.toUpperCase()})}
                   placeholder="Ex: Carregador USB-C"
                 />
               </div>

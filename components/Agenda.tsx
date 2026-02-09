@@ -263,7 +263,7 @@ export const Agenda: React.FC<AgendaProps> = ({
                   autoFocus
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-emerald-500 focus:outline-none shadow-inner"
                   value={formData.title}
-                  onChange={e => setFormData({...formData, title: e.target.value})}
+                  onChange={e => setFormData({...formData, title: e.target.value.toUpperCase()})}
                   placeholder="Ex: Visita Cobrança, Entrega..."
                 />
               </div>
@@ -310,7 +310,7 @@ export const Agenda: React.FC<AgendaProps> = ({
                 <textarea 
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-emerald-500 focus:outline-none h-24 resize-none shadow-inner"
                   value={formData.notes}
-                  onChange={e => setFormData({...formData, notes: e.target.value})}
+                  onChange={e => setFormData({...formData, notes: e.target.value.toUpperCase()})}
                   placeholder="Detalhes adicionais..."
                 />
               </div>

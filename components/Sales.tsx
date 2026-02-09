@@ -436,7 +436,7 @@ export const Sales: React.FC<SalesProps> = ({ sales, products, customers, onAddS
               type="text" 
               placeholder="Buscar cliente, produto ou valor..." 
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all shadow-inner"
             />
          </div>
@@ -659,7 +659,7 @@ export const Sales: React.FC<SalesProps> = ({ sales, products, customers, onAddS
                     <div className="bg-purple-900/10 p-4 rounded-2xl border border-purple-500/20 grid grid-cols-2 gap-4 shadow-inner">
                        <div className="col-span-2 md:col-span-1">
                           <label className="text-xs text-purple-300 font-bold mb-1 block">Descrição</label>
-                          <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 outline-none focus:border-purple-500 shadow-sm" placeholder="Ex: Venda Shopee" value={commissionDescription} onChange={(e) => setCommissionDescription(e.target.value)} />
+                          <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 outline-none focus:border-purple-500 shadow-sm" placeholder="Ex: Venda Shopee" value={commissionDescription} onChange={(e) => setCommissionDescription(e.target.value.toUpperCase())} />
                        </div>
                        <div className="col-span-2 md:col-span-1">
                           <label className="text-xs text-purple-300 font-bold mb-1 block">Valor (R$)</label>
