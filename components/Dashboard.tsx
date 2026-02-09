@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
@@ -117,14 +117,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     }
   };
   
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  const filteredSales = useMemo(() => {
+    return sales.filter(sale => {
+      const saleDate = new Date(sale.date);
+      return saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear;
+    });
+  }, [sales, selectedMonth, selectedYear]);
+
+  const months = [
+    'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+    'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+  ];
+
+  const availableYears = useMemo(() => {
+    const years = new Set<number>([new Date().getFullYear()]);
+    sales.forEach(sale => years.add(new Date(sale.date).getFullYear()));
+    return Array.from(years).sort((a, b) => b - a);
+  }, [sales]);
+
   // --- Metrics Calculation ---
   const metrics = useMemo(() => {
-    const totalRevenue = sales.reduce((acc, sale) => acc + sale.totalPrice, 0);
-    const totalCost = sales.reduce((acc, sale) => acc + sale.totalCost, 0);
+    const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.totalPrice, 0);
+    const totalCost = filteredSales.reduce((acc, sale) => acc + sale.totalCost, 0);
     const netProfit = totalRevenue - totalCost;
     const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     
-    // Calculate pending/overdue sales
+    // Calculate pending/overdue sales (Keeping this GLOBAL for visibility)
     const now = Date.now();
     const pendingSales = sales.filter(s => s.status === PaymentStatus.PENDING);
     const pendingTotal = pendingSales.reduce((acc, s) => {
@@ -184,7 +205,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
   // --- Charts Data ---
   const salesByDate = useMemo(() => {
     const grouped: Record<string, any> = {};
-    const sortedSales = [...sales].sort((a, b) => a.date - b.date);
+    const sortedSales = [...filteredSales].sort((a, b) => a.date - b.date);
     
     sortedSales.forEach(sale => {
       const date = new Date(sale.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -192,13 +213,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       grouped[date].revenue += sale.totalPrice;
       grouped[date].profit += sale.totalProfit;
     });
-    return Object.values(grouped).slice(-7); 
-  }, [sales]);
+    return Object.values(grouped); 
+  }, [filteredSales]);
 
   const salesByCategory = useMemo(() => {
     const grouped: Record<string, number> = {};
     
-    sales.forEach(sale => {
+    filteredSales.forEach(sale => {
       if (sale.type === 'COMMISSION') {
         const cat = 'Comissões';
         grouped[cat] = (grouped[cat] || 0) + sale.totalProfit;
@@ -221,14 +242,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-10">
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-100 drop-shadow-lg">Painel de Controle</h2>
-          <p className="text-slate-400">Visão geral do desempenho do seu negócio</p>
+      {/* Header & Filters */}
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
+        <div className="flex flex-col md:flex-row md:items-center gap-6 w-full xl:w-auto">
+          <div>
+            <h2 className="text-3xl font-bold text-slate-100 drop-shadow-lg">Painel de Controle</h2>
+            <p className="text-slate-400">Desempenho de {months[selectedMonth]} de {selectedYear}</p>
+          </div>
+          
+          <div className="flex items-center gap-3 bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 backdrop-blur-sm self-start">
+             <select 
+               value={selectedMonth} 
+               onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+               className="bg-transparent text-slate-200 text-sm font-bold px-3 py-1.5 focus:outline-none cursor-pointer hover:text-emerald-400 transition-colors"
+             >
+               {months.map((m, i) => (
+                 <option key={m} value={i} className="bg-slate-900">{m}</option>
+               ))}
+             </select>
+             <div className="w-[1px] h-6 bg-slate-800"></div>
+             <select 
+                value={selectedYear} 
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                className="bg-transparent text-slate-200 text-sm font-bold px-3 py-1.5 focus:outline-none cursor-pointer hover:text-emerald-400 transition-colors"
+             >
+               {availableYears.map(y => (
+                 <option key={y} value={y} className="bg-slate-900">{y}</option>
+               ))}
+             </select>
+          </div>
         </div>
         
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-3 w-full md:w-auto">
           <button 
             onClick={exportToPDF}
             className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition-all shadow-lg active:scale-95"
