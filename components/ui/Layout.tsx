@@ -3,6 +3,9 @@ import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, A
 import { ViewState, Sale, PaymentStatus } from '../../types';
 import { playNotificationSound } from './Toast';
 
+import { auth } from '../../services/firebase';
+import { signOut } from 'firebase/auth';
+
 interface LayoutProps {
   currentView: ViewState;
   onNavigate: (view: ViewState) => void;
@@ -14,19 +17,23 @@ const NavItem = ({
   icon: Icon, 
   label, 
   active, 
-  onClick 
+  onClick,
+  danger
 }: { 
   icon: any, 
   label: string, 
-  active: boolean, 
-  onClick: () => void 
+  active?: boolean, 
+  onClick: () => void,
+  danger?: boolean
 }) => (
   <button
     onClick={onClick}
     className={`flex items-center space-x-3 w-full px-4 py-3 rounded-xl transition-all duration-200 group ${
       active 
         ? 'bg-emerald-500/10 text-emerald-400 font-medium shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
-        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+        : danger
+          ? 'text-rose-400 hover:bg-rose-500/10'
+          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
     }`}
   >
     <Icon size={20} className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`} />
@@ -39,6 +46,12 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [hasPlayedSound, setHasPlayedSound] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const handleLogout = async () => {
+    if (confirm('Deseja realmente sair?')) {
+      await signOut(auth);
+    }
+  };
 
   // Sync fullscreen state
   useEffect(() => {
@@ -172,6 +185,14 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
             active={currentView === 'AGENDA'} 
             onClick={() => onNavigate('AGENDA')} 
           />
+          <div className="pt-4 mt-4 border-t border-slate-800">
+            <NavItem 
+              icon={LogOut} 
+              label="Sair" 
+              onClick={handleLogout}
+              danger
+            />
+          </div>
         </nav>
 
         <div className="p-4 border-t border-slate-800">
@@ -252,6 +273,14 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
             active={currentView === 'AGENDA'} 
             onClick={() => { onNavigate('AGENDA'); setIsMobileMenuOpen(false); }} 
           />
+          <div className="pt-4 mt-2 border-t border-slate-800">
+            <NavItem 
+              icon={LogOut} 
+              label="Sair da Conta" 
+              onClick={handleLogout}
+              danger
+            />
+          </div>
         </div>
       )}
 

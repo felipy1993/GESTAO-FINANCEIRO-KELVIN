@@ -5,15 +5,29 @@ import { Sales } from './components/Sales';
 import { Products } from './components/Products';
 import { Customers } from './components/Customers';
 import { Agenda } from './components/Agenda';
+import { Login } from './components/Login';
 import { ToastContainer } from './components/ui/Toast';
 import { ViewState, Customer, Product, Sale, PaymentStatus, ToastMessage, Appointment } from './types';
 import { storageService } from './services/storageService';
 import { MOCK_PRODUCTS } from './constants';
+import { auth } from './services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
 function App() {
   const [currentView, setCurrentView] = useState<ViewState>('DASHBOARD');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const [user, setUser] = useState<any>(null);
+  const [initializing, setInitializing] = useState(true);
   
+  // -- Auth Listener --
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (initializing) setInitializing(false);
+    });
+    return unsubscribe;
+  }, [initializing]);
+
   // -- State --
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -227,6 +241,24 @@ function App() {
 
 
   // -- Render --
+  
+  if (initializing) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+        <p className="text-slate-400 font-medium animate-pulse">Iniciando sistema...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <>
+        <Login onLoginSuccess={() => setCurrentView('DASHBOARD')} showToast={showToast} />
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </>
+    );
+  }
   
   const renderView = () => {
     switch (currentView) {
