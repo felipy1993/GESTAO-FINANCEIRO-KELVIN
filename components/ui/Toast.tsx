@@ -1,6 +1,27 @@
 import React, { useEffect } from 'react';
-import { CheckCircle, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Info, X, Volume2, VolumeX } from 'lucide-react';
 import { ToastMessage } from '../../types';
+
+// Sound Service
+export const playNotificationSound = (type: 'success' | 'error' | 'info' | 'alert') => {
+  const isEnabled = localStorage.getItem('financeiro_kelvin_sound') !== 'false';
+  if (!isEnabled) return;
+
+  try {
+    let url = '';
+    switch(type) {
+      case 'success': url = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'; break;
+      case 'error': url = 'https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3'; break;
+      case 'alert': url = 'https://assets.mixkit.co/active_storage/sfx/1003/1003-preview.mp3'; break;
+      default: url = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+    }
+    const audio = new Audio(url);
+    audio.volume = 0.4;
+    audio.play().catch(() => { /* Silent fail if interaction required */ });
+  } catch (e) {
+    console.error("Sound error", e);
+  }
+};
 
 interface ToastProps {
   toasts: ToastMessage[];
@@ -8,22 +29,40 @@ interface ToastProps {
 }
 
 export const ToastContainer: React.FC<ToastProps> = ({ toasts, removeToast }) => {
+  const [soundEnabled, setSoundEnabled] = React.useState(localStorage.getItem('financeiro_kelvin_sound') !== 'false');
+
+  const toggleSound = () => {
+    const newState = !soundEnabled;
+    setSoundEnabled(newState);
+    localStorage.setItem('financeiro_kelvin_sound', newState.toString());
+  };
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
-      ))}
-    </div>
+    <>
+      <button 
+        onClick={toggleSound}
+        className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-all shadow-lg shadow-black/50"
+        title={soundEnabled ? "Desativar Sons" : "Ativar Sons"}
+      >
+        {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+      </button>
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+        {toasts.map((toast) => (
+          <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
+        ))}
+      </div>
+    </>
   );
 };
 
 const ToastItem: React.FC<{ toast: ToastMessage; onRemove: () => void }> = ({ toast, onRemove }) => {
   useEffect(() => {
+    playNotificationSound(toast.type);
     const timer = setTimeout(() => {
       onRemove();
     }, 4000);
     return () => clearTimeout(timer);
-  }, [toast.id, onRemove]);
+  }, [toast.id, onRemove, toast.type]);
 
   const icons = {
     success: <CheckCircle className="text-emerald-400" size={20} />,

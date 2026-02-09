@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, AlertTriangle, CheckCircle, CalendarDays, Maximize, Minimize } from 'lucide-react';
 import { ViewState, Sale, PaymentStatus } from '../../types';
+import { playNotificationSound } from './Toast';
 
 interface LayoutProps {
   currentView: ViewState;
@@ -32,9 +33,6 @@ const NavItem = ({
     <span>{label}</span>
   </button>
 );
-
-// Notification Sound (Simple Beep Base64)
-const ALERT_SOUND = "data:audio/wav;base64,UklGRl9vT1BXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU"; // Shortened placeholder, using a simpler URL below for better cross-browser compatibility
 
 export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, children, sales = [] }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -113,15 +111,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   // Play Sound on Overdue Detection
   useEffect(() => {
     if (overdueItems.length > 0 && !hasPlayedSound) {
-      // Use a standard browser beep approach or a hosted file
-      // Since we can't guarantee external hosting, we try a simple context beep or log
-      try {
-         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-         audio.volume = 0.5;
-         audio.play().catch(e => console.log("Audio requires interaction"));
-      } catch (e) {
-        console.error("Sound error", e);
-      }
+      playNotificationSound('alert');
       setHasPlayedSound(true);
     }
   }, [overdueItems, hasPlayedSound]);
