@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { auth } from '../services/firebase';
 import { 
   signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword,
-  sendPasswordResetEmail 
+  createUserWithEmailAndPassword
 } from 'firebase/auth';
-import { LogIn, UserPlus, Lock, Mail, Loader2, Wallet } from 'lucide-react';
+import { LogIn, UserPlus, Lock, User, Loader2, Wallet } from 'lucide-react';
 
 interface LoginProps {
   onLoginSuccess: () => void;
@@ -14,36 +13,33 @@ interface LoginProps {
 
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [forgotPassword, setForgotPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
+    // Converte o nome de usuário em um formato de e-mail aceito pelo Firebase internamente
+    const virtualEmail = `${username.trim().toLowerCase()}@kelvin.com`;
+
     try {
-      if (forgotPassword) {
-        await sendPasswordResetEmail(auth, email);
-        showToast('success', 'E-mail de recuperação enviado!');
-        setForgotPassword(false);
-      } else if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
+      if (isLogin) {
+        await signInWithEmailAndPassword(auth, virtualEmail, password);
         showToast('success', 'Bem-vindo de volta!');
         onLoginSuccess();
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        await createUserWithEmailAndPassword(auth, virtualEmail, password);
         showToast('success', 'Conta criada com sucesso!');
         onLoginSuccess();
       }
     } catch (error: any) {
       console.error(error);
       let message = 'Ocorreu um erro. Tente novamente.';
-      if (error.code === 'auth/user-not-found') message = 'Usuário não encontrado.';
-      if (error.code === 'auth/wrong-password') message = 'Senha incorreta.';
-      if (error.code === 'auth/email-already-in-use') message = 'Este e-mail já está em uso.';
-      if (error.code === 'auth/invalid-credential') message = 'Credenciais inválidas.';
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') message = 'Nome ou senha incorretos.';
+      if (error.code === 'auth/email-already-in-use') message = 'Este nome já está em uso.';
+      if (error.code === 'auth/weak-password') message = 'A senha deve ter pelo menos 6 caracteres.';
       
       showToast('error', message);
     } finally {
@@ -64,41 +60,39 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
               <Wallet className="text-slate-900" size={32} />
             </div>
             <h1 className="text-2xl font-bold text-slate-100">Financeiro Kelvin</h1>
-            <p className="text-slate-400 text-sm">{forgotPassword ? 'Recupere sua conta' : isLogin ? 'Acesse sua conta' : 'Crie sua conta'}</p>
+            <p className="text-slate-400 text-sm">{isLogin ? 'Acesse com seu nome' : 'Escolha seu nome de usuário'}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">E-mail</label>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Nome de Usuário</label>
               <div className="relative group">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
                 <input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text" 
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                  placeholder="seu@email.com"
+                  placeholder="Ex: Kelvin ou Admin"
                   required
                 />
               </div>
             </div>
 
-            {!forgotPassword && (
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Senha</label>
-                <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
-                  <input 
-                    type="password" 
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
-                    placeholder="••••••••"
-                    required
-                  />
-                </div>
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">Senha</label>
+              <div className="relative group">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-400 transition-colors" size={18} />
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-slate-950/50 border border-slate-800 rounded-xl py-3 pl-10 pr-4 text-slate-200 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  placeholder="••••••••"
+                  required
+                />
               </div>
-            )}
+            </div>
 
             <button 
               type="submit" 
@@ -107,7 +101,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : (
                 <>
-                  {forgotPassword ? 'Enviar Link' : isLogin ? 'Entrar' : 'Cadastrar'}
+                  {isLogin ? 'Entrar' : 'Cadastrar'}
                   {isLogin ? <LogIn size={18} className="group-hover:translate-x-1 transition-transform" /> : <UserPlus size={18} />}
                 </>
               )}
@@ -115,34 +109,17 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
           </form>
 
           <div className="mt-8 pt-6 border-t border-slate-800 space-y-4 text-center">
-            {forgotPassword ? (
-              <button 
-                onClick={() => setForgotPassword(false)}
-                className="text-sm text-slate-400 hover:text-emerald-400 transition-colors font-medium"
-              >
-                Voltar para o Login
-              </button>
-            ) : (
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={() => setIsLogin(!isLogin)}
-                  className="text-sm text-slate-400 hover:text-emerald-400 transition-colors font-medium"
-                >
-                  {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça Login'}
-                </button>
-                <button 
-                  onClick={() => setForgotPassword(true)}
-                  className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  Esqueceu sua senha?
-                </button>
-              </div>
-            )}
+            <button 
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm text-slate-400 hover:text-emerald-400 transition-colors font-medium"
+            >
+              {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Faça Login'}
+            </button>
           </div>
         </div>
         
         <p className="text-center mt-8 text-slate-600 text-xs">
-          Gestão Financeira Kelvin &copy; 2026 - PWA Habilitado
+          Gestão Financeiro Kelvin &copy; 2026 - PWA Habilitado
         </p>
       </div>
     </div>
