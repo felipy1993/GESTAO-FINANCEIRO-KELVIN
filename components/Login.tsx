@@ -56,8 +56,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
       <div className="w-full max-w-md z-10">
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/20 mb-4 transform transition-transform hover:rotate-6">
-              <Wallet className="text-slate-900" size={32} />
+            <div className="w-20 h-20 bg-slate-900 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/10 mb-4 transform transition-transform hover:scale-105 border border-slate-800">
+              <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-slate-100">Financeiro Kelvin</h1>
             <p className="text-slate-400 text-sm">{isLogin ? 'Acesse com seu nome' : 'Escolha seu nome de usuário'}</p>
