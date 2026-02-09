@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, AlertTriangle, CheckCircle, CalendarDays, Maximize, Minimize } from 'lucide-react';
+import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, AlertTriangle, CheckCircle, CalendarDays, Maximize, Minimize, Download } from 'lucide-react';
 import { ViewState, Sale, PaymentStatus } from '../../types';
 import { playNotificationSound } from './Toast';
 
@@ -18,22 +18,26 @@ const NavItem = ({
   label, 
   active, 
   onClick,
-  danger
+  danger,
+  highlight
 }: { 
   icon: any, 
   label: string, 
   active?: boolean, 
   onClick: () => void,
-  danger?: boolean
+  danger?: boolean,
+  highlight?: boolean
 }) => (
   <button
     onClick={onClick}
     className={`flex items-center space-x-3 w-full px-4 py-3 rounded-xl transition-all duration-200 group ${
       active 
         ? 'bg-emerald-500/10 text-emerald-400 font-medium shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
-        : danger
-          ? 'text-rose-400 hover:bg-rose-500/10'
-          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+        : highlight
+          ? 'bg-emerald-500 text-slate-900 font-bold shadow-lg shadow-emerald-500/20 hover:bg-emerald-400'
+          : danger
+            ? 'text-rose-400 hover:bg-rose-500/10'
+            : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
     }`}
   >
     <Icon size={20} className={`transition-transform duration-300 ${active ? 'scale-110' : 'group-hover:scale-110'}`} />
@@ -46,6 +50,32 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [hasPlayedSound, setHasPlayedSound] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallButton, setShowInstallButton] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallButton(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setShowInstallButton(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   const handleLogout = async () => {
     if (confirm('Deseja realmente sair?')) {
@@ -154,7 +184,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-2">
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto custom-scrollbar">
           <NavItem 
             icon={LayoutDashboard} 
             label="Painel" 
@@ -185,6 +215,18 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
             active={currentView === 'AGENDA'} 
             onClick={() => onNavigate('AGENDA')} 
           />
+
+          {showInstallButton && (
+            <div className="pt-4 mt-4 border-t border-slate-800">
+              <NavItem 
+                icon={Download} 
+                label="Instalar App" 
+                onClick={handleInstall}
+                highlight
+              />
+            </div>
+          )}
+
           <div className="pt-4 mt-4 border-t border-slate-800">
             <NavItem 
               icon={LogOut} 
@@ -198,11 +240,11 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
         <div className="p-4 border-t border-slate-800">
           <div className="flex items-center space-x-3 text-slate-500 text-sm px-4">
             <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 ring-2 ring-slate-700">
-              C
+              K
             </div>
             <div>
               <p className="text-slate-200 font-medium">Financeiro Kelvin</p>
-              <p className="text-xs text-emerald-500">Online</p>
+              <p className="text-xs text-emerald-500">Conectado</p>
             </div>
           </div>
         </div>
@@ -242,7 +284,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
 
       {/* Mobile Menu Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-slate-900/95 z-40 md:hidden pt-20 px-6 space-y-4 animate-in slide-in-from-right">
+        <div className="fixed inset-0 bg-slate-900/95 z-40 md:hidden pt-20 px-6 space-y-4 animate-in slide-in-from-right overflow-y-auto">
            <NavItem 
             icon={LayoutDashboard} 
             label="Painel" 
@@ -273,6 +315,18 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
             active={currentView === 'AGENDA'} 
             onClick={() => { onNavigate('AGENDA'); setIsMobileMenuOpen(false); }} 
           />
+
+          {showInstallButton && (
+            <div className="pt-4 mt-2 border-t border-slate-800">
+              <NavItem 
+                icon={Download} 
+                label="Instalar Aplicativo" 
+                onClick={() => { handleInstall(); setIsMobileMenuOpen(false); }}
+                highlight
+              />
+            </div>
+          )}
+
           <div className="pt-4 mt-2 border-t border-slate-800">
             <NavItem 
               icon={LogOut} 
@@ -331,7 +385,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
                               </span>
                            )}
                         </div>
-                        <div className="max-h-80 overflow-y-auto custom-scrollbar">
+                        <div className="max-h-80 overflow-y-auto custom-scrollbar text-slate-100">
                            {overdueItems.length === 0 ? (
                               <div className="p-8 text-center text-slate-500 flex flex-col items-center">
                                  <CheckCircle size={32} className="mb-2 opacity-50 text-emerald-500" />
