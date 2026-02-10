@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download } from 'lucide-react';
+import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download, CheckCircle, Clock } from 'lucide-react';
 import { Sale, Product, PaymentStatus } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -145,6 +145,39 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     const netProfit = totalRevenue - totalCost;
     const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     
+    // Calculate REAL RECEIVED amount in THIS specific filtered month
+    // We need to look at down payments OR paid installments that occurred in this month
+    const receivedMonth = filteredSales.reduce((acc, s) => {
+      let amount = 0;
+      
+      // If sale date is in this month, add downpayment
+      const saleDate = new Date(s.date);
+      if (saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear) {
+        amount += (s.downPayment || 0);
+      }
+
+      // If it's fully PAID and in this month, and no custom installments (simple sale)
+      if (s.status === PaymentStatus.PAID && !s.customInstallments && saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear) {
+        amount += (s.totalPrice - (s.downPayment || 0));
+      }
+
+      // Check custom installments paid in this month
+      if (s.customInstallments) {
+        s.customInstallments.forEach(inst => {
+          if (inst.status === PaymentStatus.PAID && inst.paidAt) {
+            const paidDate = new Date(inst.paidAt);
+            if (paidDate.getMonth() === selectedMonth && paidDate.getFullYear() === selectedYear) {
+              amount += inst.value;
+            }
+          }
+        });
+      }
+
+      return acc + amount;
+    }, 0);
+
+    const profitMonth = filteredSales.reduce((acc, s) => acc + s.totalProfit, 0);
+    
     // Calculate pending/overdue sales (Keeping this GLOBAL for visibility)
     const now = Date.now();
     const pendingSales = sales.filter(s => s.status === PaymentStatus.PENDING);
@@ -199,8 +232,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
     const alerts = [...overdueInstallments, ...upcomingInstallments].sort((a,b) => a.dueDate - b.dueDate);
 
-    return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal };
-  }, [sales]);
+    return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal, receivedMonth, profitMonth };
+  }, [sales, selectedMonth, selectedYear]);
 
   // --- Charts Data ---
   const salesByDate = useMemo(() => {
@@ -336,45 +369,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       )}
 
       {/* KPI Cards - 3D ANIMATED */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {/* Revenue Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-slate-700/50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_60px_-12px_rgba(16,185,129,0.15)]">
-          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <DollarSign size={100} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+        {/* Received Month Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
+          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <CheckCircle size={80} className="text-emerald-500" />
           </div>
-          <p className="text-slate-400 text-sm font-medium tracking-wide">Receita Total</p>
-          <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-200 to-emerald-500 mt-2 drop-shadow-sm">
-            R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Total Recebido (Mês)</p>
+          <h3 className="text-2xl md:text-3xl font-black text-emerald-400 mt-2 drop-shadow-sm">
+            R$ {metrics.receivedMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </h3>
-          <div className="mt-6 flex items-center text-sm text-emerald-300 font-bold bg-emerald-500/10 w-fit px-3 py-1.5 rounded-lg border border-emerald-500/20 shadow-inner shadow-emerald-500/10">
-            <TrendingUp size={14} className="mr-1" />
-            Vendas Brutas
+          <div className="mt-4 flex items-center text-[10px] text-emerald-300 font-bold bg-emerald-500/10 w-fit px-2 py-1 rounded border border-emerald-500/20">
+            DINHEIRO NO BOLSO
           </div>
         </div>
 
-        {/* Profit Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-slate-700/50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_60px_-12px_rgba(59,130,246,0.15)]">
-          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <Wallet size={100} />
+        {/* Profit Month Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-500/10">
+          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <TrendingUp size={80} className="text-cyan-500" />
           </div>
-          <p className="text-slate-400 text-sm font-medium tracking-wide">Lucro Líquido</p>
-          <h3 className={`text-4xl font-extrabold mt-2 drop-shadow-sm text-transparent bg-clip-text ${metrics.netProfit >= 0 ? 'bg-gradient-to-r from-emerald-200 to-emerald-500' : 'bg-gradient-to-r from-rose-200 to-rose-500'}`}>
-            R$ {metrics.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Lucro do Mês</p>
+          <h3 className={`text-2xl md:text-3xl font-black mt-2 drop-shadow-sm ${metrics.profitMonth >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+            R$ {metrics.profitMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </h3>
-          <p className="mt-6 text-sm text-slate-500 font-medium">Margem: <span className="text-slate-200 font-bold">{metrics.margin.toFixed(1)}%</span></p>
+          <p className="mt-4 text-[10px] text-slate-500 font-bold">MARGEM: {metrics.margin.toFixed(1)}%</p>
         </div>
 
         {/* Pending Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-slate-700/50 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.5)] relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_25px_60px_-12px_rgba(245,158,11,0.15)]">
-           <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <Calendar size={100} />
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-amber-500/10">
+           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <Clock size={80} className="text-amber-500" />
           </div>
-          <p className="text-slate-400 text-sm font-medium tracking-wide">A Receber (Fiado)</p>
-          <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-amber-500 mt-2 drop-shadow-sm">
+          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">A Receber (Mês)</p>
+          <h3 className="text-2xl md:text-3xl font-black text-amber-400 mt-2 drop-shadow-sm">
+            R$ {(metrics.totalRevenue - metrics.receivedMonth).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <div className="mt-4 text-[10px] text-slate-500 font-bold">
+             DÉBITO PENDENTE
+          </div>
+        </div>
+
+        {/* Total Overall Pending Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
+           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <DollarSign size={80} className="text-rose-500" />
+          </div>
+          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Total devedor</p>
+          <h3 className="text-2xl md:text-3xl font-black text-rose-400 mt-2 drop-shadow-sm">
             R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </h3>
-          <div className="mt-6 flex items-center text-sm text-slate-400">
-             <span className="bg-slate-800 px-2 py-1 rounded-md border border-slate-700 text-slate-300 font-bold mr-2">{metrics.alerts.length}</span> parcelas pendentes
+          <div className="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
+             GERAL ACUMULADO
           </div>
         </div>
       </div>
