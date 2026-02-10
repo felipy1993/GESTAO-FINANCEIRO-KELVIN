@@ -1,4 +1,4 @@
-const CACHE_NAME = 'financeiro-kelvin-v2'; // Incremented version
+const CACHE_NAME = 'financeiro-kelvin-v3'; // Incremented version to force update
 const ASSETS = [
   '/',
   '/index.html',
