@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import html2canvas from 'html2canvas';
 import { 
   Plus, Search, CheckCircle, Clock, ShoppingCart, AlertCircle, 
   Calendar, Filter, X, ChevronDown, ChevronUp, DollarSign, 
@@ -42,47 +43,69 @@ const SummaryCard = ({ title, value, subtext, icon: Icon, colorClass, bgClass, s
 );
 
 const ReceiptModal = ({ sale, onClose }: { sale: Sale; onClose: () => void }) => {
+  const [isSharing, setIsSharing] = useState(false);
   const subtotal = sale.totalPrice;
   const discount = 0;
   const total = subtotal - discount;
 
   const handleShare = async () => {
     const element = document.getElementById('premium-receipt');
-    if (!element) return;
+    if (!element || isSharing) return;
+
+    setIsSharing(true);
     
     try {
+      // Small delay to ensure any CSS animations are done
+      await new Promise(r => setTimeout(r, 100));
+
       const canvas = await html2canvas(element, {
         backgroundColor: '#ffffff',
         scale: 2,
         logging: false,
-        useCORS: true
+        useCORS: true,
+        allowTaint: true
       });
       
       canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `recibo-${sale.id.slice(0,8)}.png`, { type: 'image/png' });
-        
-        if (navigator.share) {
-          try {
+        if (!blob) {
+            setIsSharing(false);
+            return;
+        }
+
+        try {
+          const file = new File([blob], `recibo-${sale.id.slice(0,8)}.png`, { type: 'image/png' });
+          
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({
               files: [file],
-              title: 'Recibo Kelvin Financeiro',
-              text: `Recibo de venda para ${sale.customerName || 'Cliente'}`
+              title: 'Recibo Financeiro Kelvin',
+              text: `Comprovante de venda para ${sale.customerName || 'Cliente'}`
             });
-          } catch (err) {
-            console.error('Erro ao compartilhar:', err);
+          } else {
+            // Fallback to download
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `recibo-${sale.id.slice(0,8)}.png`;
+            link.click();
+            URL.revokeObjectURL(url);
           }
-        } else {
+        } catch (err) {
+          console.error('Erro ao compartilhar:', err);
+          // Simple fallback download if share fails
           const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
           link.download = `recibo-${sale.id.slice(0,8)}.png`;
           link.click();
           URL.revokeObjectURL(url);
+        } finally {
+          setIsSharing(false);
         }
-      });
+      }, 'image/png');
     } catch (error) {
       console.error('Erro ao gerar imagem:', error);
+      setIsSharing(false);
     }
   };
 
@@ -98,8 +121,21 @@ const ReceiptModal = ({ sale, onClose }: { sale: Sale; onClose: () => void }) =>
              <button onClick={() => window.print()} className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/5 shadow-lg active:scale-95" title="Imprimir">
                <Printer size={20} />
              </button>
-             <button onClick={handleShare} className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
-               <Share2 size={20} /> Compartilhar Recibo
+             <button 
+               onClick={handleShare} 
+               disabled={isSharing}
+               className={`flex items-center gap-2 px-6 py-3 ${isSharing ? 'bg-slate-700 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400'} text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95`}
+             >
+               {isSharing ? (
+                 <>
+                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                   <span>Gerando...</span>
+                 </>
+               ) : (
+                 <>
+                   <Share2 size={20} /> Compartilhar Recibo
+                 </>
+               )}
              </button>
           </div>
         </div>
