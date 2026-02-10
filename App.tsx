@@ -211,9 +211,32 @@ function App() {
   };
 
   const deleteSale = async (id: string) => {
-    if (!confirm('Excluir esta venda permanentemente?')) return;
-    firestoreService.deleteItem('sales', id);
-    showToast('info', 'Venda excluída.');
+    const sale = sales.find(s => s.id === id);
+    if (!sale) return;
+    if (!confirm('Excluir esta venda permanentemente? O estoque será devolvido.')) return;
+
+    try {
+      // 1. Restore Stock if it's a SALE
+      if (sale.type === 'SALE') {
+        const stockUpdates = sale.items.map(async (item) => {
+          const product = products.find(p => p.id === item.productId);
+          if (product) {
+            return firestoreService.saveItem('products', product.id, { 
+              ...product, 
+              stock: product.stock + item.quantity 
+            });
+          }
+        });
+        await Promise.all(stockUpdates);
+      }
+
+      // 2. Delete the Sale
+      await firestoreService.deleteItem('sales', id);
+      showToast('info', 'Venda excluída e estoque atualizado.');
+    } catch (error) {
+      console.error("Erro ao excluir venda:", error);
+      showToast('error', 'Erro ao excluir venda.');
+    }
   };
 
   const toggleSaleStatus = async (id: string) => {

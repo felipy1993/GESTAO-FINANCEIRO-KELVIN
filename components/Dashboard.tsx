@@ -202,8 +202,26 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     }> = [];
 
     pendingSales.forEach(sale => {
-      if (!sale.dueDate) return;
+      // Prioritize custom installments if they exist
+      if (sale.customInstallments && sale.customInstallments.length > 0) {
+        sale.customInstallments.forEach(inst => {
+          if (inst.status !== PaymentStatus.PAID) {
+            allPendingInstallments.push({
+              id: inst.id,
+              saleId: sale.id,
+              customerName: sale.customerName || 'Cliente',
+              installmentNumber: inst.number,
+              totalInstallments: sale.installments,
+              value: inst.value,
+              dueDate: inst.dueDate
+            });
+          }
+        });
+        return;
+      }
 
+      // Fallback to automatic calculation
+      if (!sale.dueDate) return;
       const totalToInstall = sale.totalPrice - (sale.downPayment || 0);
       const installments = sale.installments || 1;
       const installmentValue = totalToInstall / installments;
@@ -211,10 +229,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
       for (let i = 0; i < installments; i++) {
         if ((sale.paidInstallments || 0) > i) continue;
-
         const date = new Date(baseDate);
         date.setMonth(date.getMonth() + i);
-        
         allPendingInstallments.push({
           id: `${sale.id}-${i+1}`,
           saleId: sale.id,
@@ -234,6 +250,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
     return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal, receivedMonth, profitMonth };
   }, [sales, selectedMonth, selectedYear]);
+
+  // --- Date Helpers ---
+  const getDaysDiff = (dueDate: number) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dueDate);
+    target.setHours(0, 0, 0, 0);
+    
+    const diffTime = target.getTime() - today.getTime();
+    return Math.round(diffTime / (1000 * 60 * 60 * 24));
+  };
 
   // --- Charts Data ---
   const salesByDate = useMemo(() => {
@@ -337,7 +364,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto custom-scrollbar pr-2">
                {metrics.alerts.map(inst => {
-                 const daysDiff = Math.ceil((inst.dueDate - Date.now()) / (1000 * 60 * 60 * 24));
+                 const daysDiff = getDaysDiff(inst.dueDate);
                  const isOverdue = daysDiff < 0;
                  
                  return (
