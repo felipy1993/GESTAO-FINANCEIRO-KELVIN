@@ -187,6 +187,10 @@ export const Sales: React.FC<SalesProps> = ({
     if (initialProductId && products.length > 0) {
       const product = products.find(p => p.id === initialProductId);
       if (product) {
+        if (product.stock <= 0) {
+          showToast('error', `O produto ${product.name} está sem estoque!`);
+          return;
+        }
         setIsModalOpen(true);
         setActiveTab('SALE');
         const newItem: SaleItem = {
@@ -338,6 +342,17 @@ export const Sales: React.FC<SalesProps> = ({
   const handleAddItem = () => {
     const product = products.find(p => p.id === currentProductId);
     if (!product) return;
+    
+    if (product.stock <= 0) {
+      showToast('error', 'Produto sem estoque!');
+      return;
+    }
+    
+    if (quantity > product.stock) {
+      showToast('error', `Estoque insuficiente! Disponível: ${product.stock}`);
+      return;
+    }
+
     const newItem: SaleItem = {
       productId: product.id, productName: product.name, quantity,
       unitCost: product.cost, unitPrice: product.price,
@@ -666,15 +681,30 @@ export const Sales: React.FC<SalesProps> = ({
               <div className="p-6 overflow-y-auto space-y-6">
                  {/* Product Sale Logic */}
                  {activeTab === 'SALE' && (
-                    <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50 shadow-inner">
-                       <div className="flex gap-2 mb-4">
-                          <select className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 outline-none focus:border-emerald-500 shadow-sm" value={currentProductId} onChange={(e) => setCurrentProductId(e.target.value)}>
-                             <option value="">Selecione o Produto...</option>
-                             {products.map(p => <option key={p.id} value={p.id}>{p.name} - R$ {p.price.toFixed(2)}</option>)}
-                          </select>
-                          <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-20 bg-slate-950 border border-slate-700 rounded-xl px-2 text-center text-slate-100 outline-none focus:border-emerald-500 shadow-sm" />
-                          <button onClick={handleAddItem} disabled={!currentProductId} className="bg-emerald-500 text-white p-3 rounded-xl disabled:opacity-50 shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform"><Plus /></button>
-                       </div>
+                     <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50 shadow-inner">
+                        <div className="flex gap-2 mb-4">
+                           <select className={`flex-1 bg-slate-950 border rounded-xl px-4 py-3 text-slate-100 outline-none shadow-sm transition-colors ${currentProductId && products.find(p => p.id === currentProductId)?.stock === 0 ? 'border-rose-500/50 focus:border-rose-500' : 'border-slate-700 focus:border-emerald-500'}`} value={currentProductId} onChange={(e) => setCurrentProductId(e.target.value)}>
+                              <option value="">Selecione o Produto...</option>
+                              {products.map(p => (
+                                <option key={p.id} value={p.id} disabled={p.stock <= 0}>
+                                  {p.name} - R$ {p.price.toFixed(2)} {p.stock <= 0 ? '(SEM ESTOQUE)' : `(${p.stock} un)`}
+                                </option>
+                              ))}
+                           </select>
+                           <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-20 bg-slate-950 border border-slate-700 rounded-xl px-2 text-center text-slate-100 outline-none focus:border-emerald-500 shadow-sm" />
+                           <button 
+                             onClick={handleAddItem} 
+                             disabled={!currentProductId || products.find(p => p.id === currentProductId)?.stock === 0} 
+                             className="bg-emerald-500 text-white p-3 rounded-xl disabled:opacity-50 disabled:bg-slate-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform"
+                           >
+                             <Plus size={20} />
+                           </button>
+                        </div>
+                        {currentProductId && products.find(p => p.id === currentProductId)?.stock === 0 && (
+                          <p className="text-rose-500 text-xs font-bold mb-2 animate-pulse flex items-center gap-1">
+                            <AlertTriangle size={12} /> Este produto está esgotado no momento.
+                          </p>
+                        )}
                        <div className="space-y-2 max-h-32 overflow-y-auto">
                           {cartItems.map((item, idx) => (
                              <div key={idx} className="flex justify-between bg-slate-900 p-3 rounded-lg border border-slate-800 items-center shadow-sm">

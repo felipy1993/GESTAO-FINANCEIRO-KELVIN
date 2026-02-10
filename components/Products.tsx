@@ -194,11 +194,16 @@ export const Products: React.FC<ProductsProps> = ({
                 
                 <div className="mt-5 pt-2">
                   <button 
-                    onClick={() => onSellProduct(product)}
-                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all border-t border-emerald-400"
+                    onClick={() => product.stock > 0 ? onSellProduct(product) : showToast('error', 'Produto sem estoque!')}
+                    disabled={product.stock <= 0}
+                    className={`w-full font-black py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-all border-t ${
+                      product.stock > 0 
+                        ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950 shadow-emerald-500/20 border-emerald-400' 
+                        : 'bg-slate-800 text-slate-500 shadow-none border-slate-700 cursor-not-allowed opacity-50'
+                    }`}
                   >
                     <Plus size={20} strokeWidth={3} />
-                    VENDER AGORA
+                    {product.stock > 0 ? 'VENDER AGORA' : 'SEM ESTOQUE'}
                   </button>
                 </div>
                 
