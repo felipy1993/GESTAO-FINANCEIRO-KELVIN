@@ -38,26 +38,17 @@ export const ToastContainer: React.FC<ToastProps> = ({ toasts, removeToast }) =>
   };
 
   return (
-    <>
-      <button 
-        onClick={toggleSound}
-        className="fixed bottom-4 left-4 z-50 p-3 rounded-full bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-all shadow-lg shadow-black/50"
-        title={soundEnabled ? "Desativar Sons" : "Ativar Sons"}
-      >
-        {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-      </button>
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-        {toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
-        ))}
-      </div>
-    </>
+    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
+      ))}
+    </div>
   );
 };
 
 const ToastItem: React.FC<{ toast: ToastMessage; onRemove: () => void }> = ({ toast, onRemove }) => {
   useEffect(() => {
-    playNotificationSound(toast.type);
+    // playNotificationSound(toast.type); // Som desativado conforme solicitado
     const timer = setTimeout(() => {
       onRemove();
     }, 4000);

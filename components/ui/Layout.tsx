@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { LayoutDashboard, ShoppingCart, Package, Users, LogOut, Menu, X, Bell, AlertTriangle, CheckCircle, CalendarDays, Maximize, Minimize, Download } from 'lucide-react';
 import { ViewState, Sale, PaymentStatus } from '../../types';
-import { playNotificationSound } from './Toast';
 
 import { auth } from '../../services/firebase';
 import { signOut } from 'firebase/auth';
@@ -182,10 +181,9 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
     return items.sort((a, b) => b.daysOverdue - a.daysOverdue);
   }, [sales]);
 
-  // Play Sound on Overdue Detection
+  // Silent Overdue Detection (Sound Removed)
   useEffect(() => {
     if (overdueItems.length > 0 && !hasPlayedSound) {
-      playNotificationSound('alert');
       setHasPlayedSound(true);
     }
   }, [overdueItems, hasPlayedSound]);
@@ -269,14 +267,17 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
         </nav>
 
         <div className="p-4 border-t border-slate-800">
-          <div className="flex items-center space-x-3 text-slate-500 text-sm px-4">
-            <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 ring-2 ring-slate-700">
-              K
+          <div className="flex items-center justify-between mb-4 px-2">
+            <div className="flex items-center space-x-3 text-slate-500 text-sm">
+              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 ring-2 ring-slate-700">
+                K
+              </div>
+              <div>
+                <p className="text-slate-200 font-medium text-xs">Financeiro Kelvin</p>
+                <p className="text-[10px] text-emerald-500">Conectado</p>
+              </div>
             </div>
-            <div>
-              <p className="text-slate-200 font-medium">Financeiro Kelvin</p>
-              <p className="text-xs text-emerald-500">Conectado</p>
-            </div>
+            <span className="text-[10px] font-mono text-slate-600 bg-slate-950 px-2 py-1 rounded border border-slate-800">v3.0.0</span>
           </div>
         </div>
       </aside>
@@ -358,13 +359,14 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
             </div>
           )}
 
-          <div className="pt-4 mt-2 border-t border-slate-800">
+          <div className="pt-4 mt-2 border-t border-slate-800 flex justify-between items-center px-4 mb-8">
             <NavItem 
               icon={LogOut} 
               label="Sair da Conta" 
               onClick={handleLogout}
               danger
             />
+            <span className="text-[10px] font-mono text-slate-600">v3.0.0</span>
           </div>
         </div>
       )}
