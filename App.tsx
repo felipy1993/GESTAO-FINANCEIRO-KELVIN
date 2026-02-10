@@ -226,14 +226,35 @@ function App() {
     const sale = sales.find(s => s.id === id);
     if (!sale || sale.status === PaymentStatus.PAID) return;
 
-    const newPaidCount = sale.paidInstallments + 1;
-    const isFullyPaid = newPaidCount >= sale.installments;
+    let updateData: Partial<Sale> = {};
 
-    firestoreService.saveItem('sales', id, {
-      ...sale,
-      paidInstallments: newPaidCount,
-      status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PENDING
-    });
+    if (sale.customInstallments && sale.customInstallments.length > 0) {
+      const newPlan = sale.customInstallments.map(inst => ({ ...inst }));
+      const nextToPay = newPlan.find(inst => inst.status !== PaymentStatus.PAID);
+      
+      if (nextToPay) {
+        nextToPay.status = PaymentStatus.PAID;
+        nextToPay.paidAt = Date.now();
+      }
+
+      const totalPaid = newPlan.filter(inst => inst.status === PaymentStatus.PAID).length;
+      const isFullyPaid = totalPaid >= newPlan.length;
+
+      updateData = {
+        customInstallments: newPlan,
+        paidInstallments: totalPaid,
+        status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PENDING
+      };
+    } else {
+      const newPaidCount = sale.paidInstallments + 1;
+      const isFullyPaid = newPaidCount >= sale.installments;
+      updateData = {
+        paidInstallments: newPaidCount,
+        status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PENDING
+      };
+    }
+
+    firestoreService.saveItem('sales', id, { ...sale, ...updateData });
     showToast('success', 'Parcela paga!');
   };
 

@@ -4,7 +4,7 @@ import {
   Calendar, Filter, X, ChevronDown, ChevronUp, DollarSign, 
   Edit2, Briefcase, FileText, Printer, TrendingUp, Wallet, AlertTriangle
 } from 'lucide-react';
-import { Sale, Product, Customer, PaymentMethod, SaleItem, PaymentStatus, SaleType } from '../types';
+import { Sale, Product, Customer, PaymentMethod, SaleItem, PaymentStatus, SaleType, Installment } from '../types';
 import { PAYMENT_METHODS } from '../constants';
 
 interface SalesProps {
@@ -176,6 +176,10 @@ export const Sales: React.FC<SalesProps> = ({
   const [commissionDescription, setCommissionDescription] = useState('');
   const [commissionValue, setCommissionValue] = useState<string>('');
 
+  // Existing Plan Edit State
+  const [planEditSale, setPlanEditSale] = useState<Sale | null>(null);
+  const [editingInstallments, setEditingInstallments] = useState<Installment[]>([]);
+
   // --- Effects ---
   useEffect(() => {
     const today = new Date();
@@ -238,13 +242,26 @@ export const Sales: React.FC<SalesProps> = ({
   };
 
   const generateDisplayInstallments = (sale: Sale) => {
-    const parts = [];
+    const parts: any[] = [];
     if (sale.downPayment && sale.downPayment > 0) {
        parts.push({
          number: 0, label: 'Entrada', date: new Date(sale.date), value: sale.downPayment,
          isOverdue: false, isPaid: true, isEntry: true, isNextToPay: false
        });
     }
+
+    if (sale.customInstallments && sale.customInstallments.length > 0) {
+      return [...parts, ...sale.customInstallments.map((inst, i) => ({
+        ...inst,
+        label: `Parcela ${inst.number}`,
+        date: new Date(inst.dueDate),
+        isOverdue: inst.status !== PaymentStatus.PAID && inst.dueDate < Date.now(),
+        isPaid: inst.status === PaymentStatus.PAID,
+        isEntry: false,
+        isNextToPay: inst.status !== PaymentStatus.PAID && (i === 0 || sale.customInstallments![i-1].status === PaymentStatus.PAID)
+      }))];
+    }
+
     if (!sale.dueDate) return parts;
     const baseDate = new Date(sale.dueDate);
     const remaining = sale.totalPrice - (sale.downPayment || 0);
@@ -325,22 +342,38 @@ export const Sales: React.FC<SalesProps> = ({
     return { totalCost, totalPrice, totalProfit };
   }, [cartItems, activeTab, commissionValue]);
 
-  const installmentPlan = useMemo(() => {
-    if (installments <= 0 || !dueDate || cartTotals.totalPrice === 0) return [];
+  const [customPlan, setCustomPlan] = useState<Omit<Installment, 'id' | 'status'>[]>([]);
+  const [isEditingPlan, setIsEditingPlan] = useState(false);
+
+  // Auto-generate plan when base values change, but only if not manually editing
+  useEffect(() => {
+    if (installments <= 0 || !dueDate || cartTotals.totalPrice === 0 || isEditingPlan) return;
+    
     const actualDownPayment = Math.min(downPayment, cartTotals.totalPrice);
     const remainingAmount = cartTotals.totalPrice - actualDownPayment;
-    if (remainingAmount <= 0) return [];
+    if (remainingAmount <= 0) {
+      setCustomPlan([]);
+      return;
+    }
 
-    const plans = [];
     const [y, m, d] = dueDate.split('-').map(Number);
-    const valuePerInstallment = remainingAmount / installments;
+    const valuePerInstallment = Number((remainingAmount / installments).toFixed(2));
+    const newPlan = [];
 
     for (let i = 0; i < installments; i++) {
       const date = new Date(y, (m - 1) + i, d);
-      plans.push({ number: i + 1, date: date, value: valuePerInstallment });
+      newPlan.push({ 
+        number: i + 1, 
+        dueDate: date.getTime(), 
+        value: i === installments - 1 
+          ? Number((remainingAmount - (valuePerInstallment * (installments - 1))).toFixed(2)) 
+          : valuePerInstallment 
+      });
     }
-    return plans;
-  }, [installments, dueDate, cartTotals.totalPrice, downPayment]);
+    setCustomPlan(newPlan);
+  }, [installments, dueDate, cartTotals.totalPrice, downPayment, isEditingPlan]);
+
+  const installmentPlan = customPlan;
 
 
   // --- Actions ---
@@ -408,13 +441,20 @@ export const Sales: React.FC<SalesProps> = ({
         }
       }
 
+      const finalPlan: Installment[] = (finalStatus === PaymentStatus.PAID) ? [] : customPlan.map(p => ({
+        ...p,
+        id: crypto.randomUUID(),
+        status: PaymentStatus.PENDING
+      }));
+
       await onAddSale({
         type: activeTab,
         customerId: selectedCustomerId || undefined,
         customerName, items: itemsToSave,
         paymentMethod, installments: finalInstallments,
         downPayment: finalDownPayment, isRecurring,
-        status: finalStatus, dueDate: dueTimestamp
+        status: finalStatus, dueDate: dueTimestamp,
+        customInstallments: finalPlan
       });
 
       // Reset
@@ -436,6 +476,16 @@ export const Sales: React.FC<SalesProps> = ({
     onUpdateSale(dateEditSale.id, { dueDate: newDateTs });
     setDateEditSale(null); setNewDueDate('');
     showToast('success', 'Data atualizada.');
+  };
+
+  const handleSaveEditedPlan = () => {
+    if (!planEditSale) return;
+    onUpdateSale(planEditSale.id, { 
+      customInstallments: editingInstallments,
+      installments: editingInstallments.length 
+    });
+    setPlanEditSale(null);
+    showToast('success', 'Plano atualizado!');
   };
 
   return (
@@ -623,6 +673,34 @@ export const Sales: React.FC<SalesProps> = ({
                           <Calendar size={16} /> Cronograma de Pagamentos
                         </h4>
                         <button 
+                           onClick={() => { 
+                             if (sale.customInstallments && sale.customInstallments.length > 0) {
+                               setEditingInstallments(sale.customInstallments);
+                             } else {
+                               // Generate default plan from base date
+                               const baseDate = new Date(sale.dueDate || sale.date);
+                               const remaining = sale.totalPrice - (sale.downPayment || 0);
+                               const val = remaining / sale.installments;
+                               const newPlan = Array.from({ length: sale.installments }).map((_, i) => {
+                                 const d = new Date(baseDate);
+                                 d.setMonth(d.getMonth() + i);
+                                 return {
+                                   id: crypto.randomUUID(),
+                                   number: i + 1,
+                                   dueDate: d.getTime(),
+                                   value: val,
+                                   status: (i + 1) <= sale.paidInstallments ? PaymentStatus.PAID : PaymentStatus.PENDING
+                                 };
+                               });
+                               setEditingInstallments(newPlan);
+                             }
+                             setPlanEditSale(sale);
+                           }}
+                           className="text-xs text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-medium bg-emerald-500/10 px-2 py-1 rounded"
+                        >
+                          <Edit2 size={12} /> Editar Valores/Datas
+                        </button>
+                        <button 
                            onClick={() => { setDateEditSale(sale); setNewDueDate(new Date(sale.dueDate || Date.now()).toISOString().split('T')[0]); }}
                            className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-medium"
                         >
@@ -668,6 +746,66 @@ export const Sales: React.FC<SalesProps> = ({
 
       {/* --- Modals --- */}
       
+      
+      {planEditSale && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-100">Personalizar Plano</h3>
+              <button onClick={() => setPlanEditSale(null)} className="text-slate-400 hover:text-white"><X /></button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-3 custom-scrollbar">
+              {editingInstallments.map((inst, idx) => (
+                <div key={idx} className={`p-3 rounded-xl border flex flex-col gap-2 ${inst.status === 'PAID' ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-slate-950 border-slate-800'}`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-slate-500">{inst.number}ª PARCELA</span>
+                    <span className={`text-[10px] font-bold ${inst.status === 'PAID' ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {inst.status === 'PAID' ? 'PAGO' : 'PENDENTE'}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      type="date" 
+                      className="bg-slate-900 border border-slate-800 rounded px-2 py-2 text-xs text-slate-100 flex-1" 
+                      value={new Date(inst.dueDate).toISOString().split('T')[0]} 
+                      onChange={(e) => {
+                        const newPlan = [...editingInstallments];
+                        newPlan[idx].dueDate = new Date(e.target.value + 'T12:00:00').getTime();
+                        setEditingInstallments(newPlan);
+                      }}
+                    />
+                    <div className="bg-slate-900 border border-slate-800 rounded px-2 py-2 flex items-center gap-1">
+                      <span className="text-xs text-slate-500">R$</span>
+                      <input 
+                        type="number" 
+                        step="0.01"
+                        className="bg-transparent text-xs text-slate-100 w-24 outline-none font-bold" 
+                        value={inst.value} 
+                        onChange={(e) => {
+                          const newPlan = [...editingInstallments];
+                          newPlan[idx].value = Number(e.target.value);
+                          setEditingInstallments(newPlan);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-6 border-t border-slate-800 bg-slate-950/50">
+              <div className="flex justify-between items-center mb-4 px-2">
+                <span className="text-xs font-bold text-slate-500">TOTAL DO PLANO:</span>
+                <span className="text-lg font-black text-slate-100">
+                  R$ {editingInstallments.reduce((acc, p) => acc + p.value, 0).toFixed(2)}
+                </span>
+              </div>
+              <button onClick={handleSaveEditedPlan} className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98]">
+                Salvar Alterações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {receiptSale && <ReceiptModal sale={receiptSale} onClose={() => setReceiptSale(null)} />}
 
       {dateEditSale && (
@@ -799,10 +937,62 @@ export const Sales: React.FC<SalesProps> = ({
                                 {[1,2,3,4,5,6,7,8,9,10,12].map(i => <option key={i} value={i}>{i}x</option>)}
                              </select>
                           </div>
-                          <div className="col-span-2">
-                             <label className="text-xs text-slate-500 mb-1 block">Vencimento / 1ª Parcela</label>
-                             <input type="date" className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-slate-100" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-                          </div>
+                                                     <div className="col-span-2">
+                              <label className="text-xs text-slate-500 mb-1 block">Vencimento / 1ª Parcela</label>
+                              <input type="date" className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-slate-100" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+                           </div>
+
+                           <div className="col-span-2 mt-2">
+                             <button 
+                               type="button"
+                               onClick={() => setIsEditingPlan(!isEditingPlan)}
+                               className={`text-xs font-bold flex items-center gap-1 transition-colors ${isEditingPlan ? 'text-amber-500' : 'text-emerald-500'}`}
+                             >
+                                <Edit2 size={12} /> {isEditingPlan ? 'Calc. Automático (Limpar)' : 'Personalizar Datas/Valores'}
+                             </button>
+                           </div>
+
+                           {isEditingPlan && (
+                             <div className="col-span-2 space-y-2 mt-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                               {customPlan.map((p, idx) => (
+                                 <div key={idx} className="flex gap-2 items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800 animate-in slide-in-from-left-2 duration-200" style={{ animationDelay: f'{idx * 50}ms' }}>
+                                   <span className="text-[10px] font-bold text-slate-500 w-8">{p.number}ª</span>
+                                   <input 
+                                     type="date" 
+                                     className="bg-slate-950 border border-slate-800 rounded px-2 py-1 text-xs text-slate-100 flex-1 outline-none focus:border-emerald-500/50" 
+                                     value={new Date(p.dueDate).toISOString().split('T')[0]} 
+                                     onChange={(e) => {
+                                       const newPlan = [...customPlan];
+                                       newPlan[idx].dueDate = new Date(e.target.value + 'T12:00:00').getTime();
+                                       setCustomPlan(newPlan);
+                                     }}
+                                   />
+                                   <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded border border-slate-800">
+                                     <span className="text-[10px] text-slate-500">R$</span>
+                                     <input 
+                                       type="number" 
+                                       step="0.01"
+                                       className="bg-transparent text-xs text-slate-100 w-20 outline-none font-bold" 
+                                       value={p.value} 
+                                       onChange={(e) => {
+                                         const newPlan = [...customPlan];
+                                         newPlan[idx].value = Number(e.target.value);
+                                         setCustomPlan(newPlan);
+                                       }}
+                                     />
+                                   </div>
+                                 </div>
+                               ))}
+                               <div className="p-2 bg-slate-950 rounded border border-dashed border-slate-800">
+                                 <div className="flex justify-between items-center text-[10px] font-bold">
+                                   <span className="text-slate-500">SOMA DAS PARCELAS:</span>
+                                   <span className={Math.abs(customPlan.reduce((acc, p) => acc + p.value, 0) - (cartTotals.totalPrice - (downPayment || 0))) < 0.01 ? 'text-emerald-500' : 'text-rose-500'}>
+                                     R$ {customPlan.reduce((acc, p) => acc + p.value, 0).toFixed(2)}
+                                   </span>
+                                 </div>
+                               </div>
+                             </div>
+                           )}
                        </div>
                     )}
                  </div>

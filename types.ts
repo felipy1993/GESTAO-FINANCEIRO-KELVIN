@@ -44,6 +44,15 @@ export enum PaymentStatus {
 
 export type SaleType = 'SALE' | 'COMMISSION';
 
+export interface Installment {
+  id: string;
+  number: number;
+  dueDate: number;
+  value: number;
+  status: PaymentStatus;
+  paidAt?: number;
+}
+
 export interface Sale {
   id: string;
   type: SaleType;
@@ -62,6 +71,7 @@ export interface Sale {
   status: PaymentStatus;
   date: number;
   dueDate?: number;
+  customInstallments?: Installment[];
 }
 
 export type AppointmentStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
