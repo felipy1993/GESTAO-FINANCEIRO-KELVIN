@@ -7,7 +7,8 @@ import {
   deleteDoc, 
   query, 
   where,
-  getDoc
+  getDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 
@@ -16,10 +17,24 @@ export const firestoreService = {
   getUserCollection: (name: string) => {
     const user = auth.currentUser;
     if (!user) throw new Error('User not authenticated');
-    return name; // We will use collection(db, 'users', user.uid, name)
+    return name;
   },
 
-  // DATA FETCHING
+  // REAL-TIME FETCHING (Snapshot)
+  subscribeToData: (collectionName: string, callback: (data: any[]) => void) => {
+    const user = auth.currentUser;
+    if (!user) return () => {};
+    
+    const colRef = collection(db, 'users', user.uid, collectionName);
+    return onSnapshot(colRef, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      callback(data);
+    }, (error) => {
+      console.error(`Error subscribing to ${collectionName}:`, error);
+    });
+  },
+
+  // DATA FETCHING (One-time - for initial or specific needs)
   loadData: async <T>(collectionName: string): Promise<T[]> => {
     const user = auth.currentUser;
     if (!user) return [];
@@ -28,7 +43,7 @@ export const firestoreService = {
     const snapshot = await getDocs(colRef);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
   },
-
+// ... (rest is the same)
   // DATA SAVING
   saveItem: async (collectionName: string, id: string, data: any) => {
     const user = auth.currentUser;

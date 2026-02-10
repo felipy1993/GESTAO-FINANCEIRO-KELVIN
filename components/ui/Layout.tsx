@@ -52,15 +52,37 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
+    // Detect iOS
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    // Detect if already installed
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    
+    setIsIOS(ios);
+    setIsStandalone(standalone);
+
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setShowInstallButton(true);
+      console.log('beforeinstallprompt fired');
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // If it's iOS and not standalone, show the button anyway for instructions
+    if (ios && !standalone) {
+      setShowInstallButton(true);
+    }
+
+    // Check if app is already installed via other means
+    window.addEventListener('appinstalled', () => {
+      setShowInstallButton(false);
+      setDeferredPrompt(null);
+    });
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -68,7 +90,16 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   }, []);
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    if (isIOS) {
+      alert('Para instalar: toque no ícone de compartilhar (seta para cima) e depois em "Adicionar à Tela de Início".');
+      return;
+    }
+
+    if (!deferredPrompt) {
+      alert('A instalação não pôde ser iniciada automaticamente. Verifique se o app já está instalado ou use o menu do navegador para "Instalar Aplicativo".');
+      return;
+    }
+
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     if (outcome === 'accepted') {

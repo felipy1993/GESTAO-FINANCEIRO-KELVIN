@@ -37,78 +37,80 @@ function App() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  // -- Data Loading & Migration Logic --
-  const initializeUserData = useCallback(async (uid: string) => {
+  // -- Auth & Real-time Listeners --
+  useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (initializing) setInitializing(false);
+    });
+
+    return unsubscribeAuth;
+  }, [initializing]);
+
+  useEffect(() => {
+    if (!user) return;
+
     setLoadingData(true);
-    try {
-      // 1. Load from Firestore
-      let fCustomers = await firestoreService.loadData<Customer>('customers');
-      let fProducts = await firestoreService.loadData<Product>('products');
-      let fSales = await firestoreService.loadData<Sale>('sales');
-      let fAppointments = await firestoreService.loadData<Appointment>('appointments');
 
-      // 2. Migration Check: If Firebase is empty but LocalStorage has data, migrate once
-      const localCustomers = storageService.load(storageService.KEYS.CUSTOMERS, []);
-      if (fCustomers.length === 0 && localCustomers.length > 0) {
-        showToast('info', 'Sincronizando seus dados locais com a nuvem...');
-        await firestoreService.bulkSave('customers', localCustomers);
-        fCustomers = localCustomers;
+    // Initial Migration Logic (Run once)
+    const runMigration = async () => {
+      try {
+        const fCustomers = await firestoreService.loadData<Customer>('customers');
+        const localCustomers = storageService.load(storageService.KEYS.CUSTOMERS, []);
         
-        const localProducts = storageService.load(storageService.KEYS.PRODUCTS, []);
-        if (localProducts.length > 0) await firestoreService.bulkSave('products', localProducts);
-        fProducts = localProducts.length > 0 ? localProducts : MOCK_PRODUCTS;
+        if (fCustomers.length === 0 && localCustomers.length > 0) {
+          showToast('info', 'Sincronizando dados locais...');
+          await firestoreService.bulkSave('customers', localCustomers);
+          
+          const localProducts = storageService.load(storageService.KEYS.PRODUCTS, []);
+          if (localProducts.length > 0) await firestoreService.bulkSave('products', localProducts);
 
-        const localSales = storageService.load(storageService.KEYS.SALES, []);
-        if (localSales.length > 0) await firestoreService.bulkSave('sales', localSales);
-        fSales = localSales;
+          const localSales = storageService.load(storageService.KEYS.SALES, []);
+          if (localSales.length > 0) await firestoreService.bulkSave('sales', localSales);
 
-        const localApts = storageService.load(storageService.KEYS.APPOINTMENTS, []);
-        if (localApts.length > 0) await firestoreService.bulkSave('appointments', localApts);
-        fAppointments = localApts;
-        
-        showToast('success', 'Dados sincronizados com sucesso!');
-        // Limpar storage local para evitar migrações repetidas
-        localStorage.clear();
+          const localApts = storageService.load(storageService.KEYS.APPOINTMENTS, []);
+          if (localApts.length > 0) await firestoreService.bulkSave('appointments', localApts);
+          
+          localStorage.clear();
+          showToast('success', 'Dados sincronizados!');
+        }
+      } catch (e) {
+        console.error("Migration error", e);
+      } finally {
+        setLoadingData(false);
       }
+    };
 
-      // 3. Fallback to MOCK if everything is empty (first time user)
-      if (fProducts.length === 0) {
-        fProducts = MOCK_PRODUCTS;
-        await firestoreService.bulkSave('products', MOCK_PRODUCTS);
+    runMigration();
+
+    // Real-time Subscriptions
+    const unsubCustomers = firestoreService.subscribeToData('customers', (data) => setCustomers(data));
+    const unsubProducts = firestoreService.subscribeToData('products', (data) => {
+      if (data.length === 0) {
+        firestoreService.bulkSave('products', MOCK_PRODUCTS);
+      } else {
+        setProducts(data);
       }
-
-      // 4. Update State
-      setCustomers(fCustomers);
-      setProducts(fProducts);
-      setSales(fSales.map(s => ({
+    });
+    const unsubSales = firestoreService.subscribeToData('sales', (data) => {
+      setSales(data.map(s => ({
         ...s,
         type: s.type || 'SALE',
         paidInstallments: s.paidInstallments ?? (s.status === PaymentStatus.PAID ? s.installments : 0),
         downPayment: s.downPayment ?? 0
       })));
-      setAppointments(fAppointments);
-
-    } catch (error) {
-      console.error("Error initializing data:", error);
-      showToast('error', 'Erro ao carregar seus dados do servidor.');
-    } finally {
-      setLoadingData(false);
-    }
-  }, []);
-
-  // -- Auth Listener --
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (user) {
-        initializeUserData(user.uid);
-      }
-      if (initializing) setInitializing(false);
     });
-    return unsubscribe;
-  }, [initializing, initializeUserData]);
+    const unsubApts = firestoreService.subscribeToData('appointments', (data) => setAppointments(data));
 
-  // -- Actions --
+    return () => {
+      unsubCustomers();
+      unsubProducts();
+      unsubSales();
+      unsubApts();
+    };
+  }, [user]);
+
+  // -- Actions (Instantly update UI via Real-time Listeners) --
   
   const addCustomer = async (customerData: Omit<Customer, 'id' | 'createdAt'>) => {
     const newCustomer: Customer = {
@@ -116,48 +118,39 @@ function App() {
       id: crypto.randomUUID(),
       createdAt: Date.now(),
     };
-    await firestoreService.saveItem('customers', newCustomer.id, newCustomer);
-    setCustomers(prev => [...prev, newCustomer]);
-    showToast('success', 'Cliente adicionado com sucesso!');
+    firestoreService.saveItem('customers', newCustomer.id, newCustomer);
+    showToast('success', 'Cliente adicionado!');
   };
 
   const updateCustomer = async (id: string, data: Partial<Customer>) => {
     const customer = customers.find(c => c.id === id);
     if (!customer) return;
-    const updated = { ...customer, ...data };
-    await firestoreService.saveItem('customers', id, updated);
-    setCustomers(prev => prev.map(c => c.id === id ? updated : c));
-    showToast('success', 'Cliente atualizado com sucesso!');
+    firestoreService.saveItem('customers', id, { ...customer, ...data });
+    showToast('success', 'Cliente atualizado!');
   };
 
   const deleteCustomer = async (id: string) => {
-    await firestoreService.deleteItem('customers', id);
-    setCustomers(prev => prev.filter(c => c.id !== id));
+    if (!confirm('Excluir este cliente?')) return;
+    firestoreService.deleteItem('customers', id);
     showToast('info', 'Cliente removido.');
   }
 
   const addProduct = async (productData: Omit<Product, 'id'>) => {
-    const newProduct: Product = {
-      ...productData,
-      id: crypto.randomUUID(),
-    };
-    await firestoreService.saveItem('products', newProduct.id, newProduct);
-    setProducts(prev => [...prev, newProduct]);
-    showToast('success', 'Produto adicionado com sucesso!');
+    const newProduct: Product = { ...productData, id: crypto.randomUUID() };
+    firestoreService.saveItem('products', newProduct.id, newProduct);
+    showToast('success', 'Produto adicionado!');
   };
 
   const updateProduct = async (id: string, data: Partial<Product>) => {
     const product = products.find(p => p.id === id);
     if (!product) return;
-    const updated = { ...product, ...data };
-    await firestoreService.saveItem('products', id, updated);
-    setProducts(prev => prev.map(p => p.id === id ? updated : p));
-    showToast('success', 'Produto atualizado com sucesso!');
+    firestoreService.saveItem('products', id, { ...product, ...data });
+    showToast('success', 'Produto atualizado!');
   };
 
   const deleteProduct = async (id: string) => {
-    await firestoreService.deleteItem('products', id);
-    setProducts(prev => prev.filter(p => p.id !== id));
+    if (!confirm('Excluir este produto?')) return;
+    firestoreService.deleteItem('products', id);
     showToast('info', 'Produto removido.');
   };
 
@@ -181,31 +174,24 @@ function App() {
     };
 
     await firestoreService.saveItem('sales', newSale.id, newSale);
-    setSales(prev => [...prev, newSale]);
 
     if (newSale.type === 'SALE') {
-      const updatedProducts = products.map(product => {
-        const itemSold = saleData.items.find(item => item.productId === product.id);
-        if (itemSold) {
-          const updated = { ...product, stock: product.stock - itemSold.quantity };
-          firestoreService.saveItem('products', product.id, updated);
-          return updated;
+      saleData.items.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (product) {
+          firestoreService.saveItem('products', product.id, { ...product, stock: product.stock - item.quantity });
         }
-        return product;
       });
-      setProducts(updatedProducts);
     }
 
-    showToast('success', newSale.type === 'COMMISSION' ? 'Comissão registrada!' : 'Venda registrada com sucesso!');
+    showToast('success', newSale.type === 'COMMISSION' ? 'Comissão registrada!' : 'Venda registrada!');
   };
 
   const updateSale = async (id: string, data: Partial<Sale>) => {
     const sale = sales.find(s => s.id === id);
     if (!sale) return;
-    const updated = { ...sale, ...data };
-    await firestoreService.saveItem('sales', id, updated);
-    setSales(prev => prev.map(s => s.id === id ? updated : s));
-    showToast('success', 'Venda atualizada com sucesso!');
+    firestoreService.saveItem('sales', id, { ...sale, ...data });
+    showToast('success', 'Venda atualizada!');
   };
 
   const toggleSaleStatus = async (id: string) => {
@@ -213,15 +199,11 @@ function App() {
     if (!sale) return;
     
     const newStatus = sale.status === PaymentStatus.PAID ? PaymentStatus.PENDING : PaymentStatus.PAID;
-    const updated = { 
+    firestoreService.saveItem('sales', id, { 
       ...sale, 
       status: newStatus,
       paidInstallments: newStatus === PaymentStatus.PAID ? sale.installments : 0
-    };
-    
-    await firestoreService.saveItem('sales', id, updated);
-    setSales(prev => prev.map(s => s.id === id ? updated : s));
-    showToast('info', 'Status de pagamento atualizado.');
+    });
   }
 
   const payInstallment = async (id: string) => {
@@ -231,39 +213,30 @@ function App() {
     const newPaidCount = sale.paidInstallments + 1;
     const isFullyPaid = newPaidCount >= sale.installments;
 
-    const updated = {
+    firestoreService.saveItem('sales', id, {
       ...sale,
       paidInstallments: newPaidCount,
       status: isFullyPaid ? PaymentStatus.PAID : PaymentStatus.PENDING
-    };
-
-    await firestoreService.saveItem('sales', id, updated);
-    setSales(prev => prev.map(s => s.id === id ? updated : s));
-    showToast('success', 'Parcela marcada como paga!');
+    });
+    showToast('success', 'Parcela paga!');
   };
 
   const addAppointment = async (aptData: Omit<Appointment, 'id'>) => {
-    const newApt: Appointment = {
-      ...aptData,
-      id: crypto.randomUUID(),
-    };
-    await firestoreService.saveItem('appointments', newApt.id, newApt);
-    setAppointments(prev => [...prev, newApt]);
+    const newApt: Appointment = { ...aptData, id: crypto.randomUUID() };
+    firestoreService.saveItem('appointments', newApt.id, newApt);
     showToast('success', 'Compromisso agendado!');
   };
 
   const updateAppointment = async (id: string, data: Partial<Appointment>) => {
     const apt = appointments.find(a => a.id === id);
     if (!apt) return;
-    const updated = { ...apt, ...data };
-    await firestoreService.saveItem('appointments', id, updated);
-    setAppointments(prev => prev.map(a => a.id === id ? updated : a));
+    firestoreService.saveItem('appointments', id, { ...apt, ...data });
     showToast('success', 'Agenda atualizada.');
   };
 
   const deleteAppointment = async (id: string) => {
-    await firestoreService.deleteItem('appointments', id);
-    setAppointments(prev => prev.filter(a => a.id !== id));
+    if (!confirm('Remover agendamento?')) return;
+    firestoreService.deleteItem('appointments', id);
     showToast('info', 'Compromisso removido.');
   };
 

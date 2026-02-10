@@ -165,17 +165,72 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, showToast }) => {
           </form>
         </div>
         
-        <div className="mt-10 flex flex-col items-center gap-2">
+        <div className="mt-10 flex flex-col items-center gap-4">
           <div className="flex items-center gap-4 text-slate-500">
             <div className="h-[1px] w-8 bg-slate-800"></div>
             <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Ambiente Seguro</p>
             <div className="h-[1px] w-8 bg-slate-800"></div>
           </div>
+
+          {/* PWA Install Button for Login Screen */}
+          <PWAInstallButton />
+
           <p className="text-slate-600 text-[10px] font-medium tracking-tight">
             PLATAFORMA KELVIN PRO 2026 &copy; TODOS OS RECURSOS MONITORADOS
           </p>
         </div>
       </div>
     </div>
+  );
+};
+
+const PWAInstallButton = () => {
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showButton, setShowButton] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowButton(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // iOS check
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    
+    if (isIOS && !isStandalone) {
+      setShowButton(true);
+    }
+
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstall = async () => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    if (isIOS) {
+      alert('Para instalar: toque no ícone de compartilhar e selecione "Adicionar à Tela de Início".');
+      return;
+    }
+
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setShowButton(false);
+    setDeferredPrompt(null);
+  };
+
+  if (!showButton) return null;
+
+  return (
+    <button 
+      onClick={handleInstall}
+      className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full text-xs font-bold text-slate-300 transition-all hover:scale-105"
+    >
+      <Loader2 className="w-3 h-3 text-emerald-500" />
+      INSTALAR APLICATIVO (PC/MOBILE)
+    </button>
   );
 };
