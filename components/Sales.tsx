@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Plus, Search, CheckCircle, Clock, ShoppingCart, AlertCircle, 
   Calendar, Filter, X, ChevronDown, ChevronUp, DollarSign, 
-  Edit2, Briefcase, FileText, Printer, TrendingUp, Wallet, AlertTriangle
+  Edit2, Briefcase, FileText, Printer, TrendingUp, Wallet, AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { Sale, Product, Customer, PaymentMethod, SaleItem, PaymentStatus, SaleType, Installment } from '../types';
 import { PAYMENT_METHODS } from '../constants';
@@ -15,6 +16,7 @@ interface SalesProps {
   onUpdateSale: (id: string, sale: Partial<Sale>) => void;
   onToggleStatus: (id: string) => void;
   onPayInstallment: (id: string) => void;
+  onDeleteSale: (id: string) => void;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;
   initialProductId?: string;
   onClearQuickSale?: () => void;
@@ -141,6 +143,7 @@ export const Sales: React.FC<SalesProps> = ({
   onUpdateSale, 
   onToggleStatus, 
   onPayInstallment, 
+  onDeleteSale,
   showToast,
   initialProductId,
   onClearQuickSale
@@ -646,6 +649,14 @@ export const Sales: React.FC<SalesProps> = ({
                       >
                         <FileText size={20} />
                       </button>
+
+                       <button 
+                         onClick={() => onDeleteSale(sale.id)} 
+                         className="p-2 text-slate-500 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors" 
+                         title="Excluir Venda" 
+                       > 
+                         <Trash2 size={18} /> 
+                       </button>
                       
                       {sale.status === PaymentStatus.PENDING ? (
                         <button 
@@ -955,7 +966,7 @@ export const Sales: React.FC<SalesProps> = ({
                            {isEditingPlan && (
                              <div className="col-span-2 space-y-2 mt-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                                {customPlan.map((p, idx) => (
-                                 <div key={idx} className="flex gap-2 items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800 animate-in slide-in-from-left-2 duration-200" style={{ animationDelay: f'{idx * 50}ms' }}>
+                                 <div key={idx} className="flex gap-2 items-center bg-slate-900/50 p-2 rounded-lg border border-slate-800 animate-in slide-in-from-left-2 duration-200" style={{ animationDelay: `${idx * 50}ms` }}>
                                    <span className="text-[10px] font-bold text-slate-500 w-8">{p.number}ª</span>
                                    <input 
                                      type="date" 

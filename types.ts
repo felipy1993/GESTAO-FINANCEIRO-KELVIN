@@ -106,6 +106,8 @@ export interface DataContextType {
   addSale: (s: Omit<Sale, 'id' | 'date' | 'totalCost' | 'totalPrice' | 'totalProfit' | 'profitMargin' | 'paidInstallments'>) => void;
   deleteProduct: (id: string) => void;
   deleteCustomer: (id: string) => void;
+  deleteSale: (id: string) => void;
+  updateSale: (id: string, data: Partial<Sale>) => void;
   togglePaymentStatus: (id: string) => void;
   payInstallment: (id: string) => void;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;

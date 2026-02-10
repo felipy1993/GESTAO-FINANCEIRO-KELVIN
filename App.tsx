@@ -210,6 +210,12 @@ function App() {
     showToast('success', 'Venda atualizada!');
   };
 
+  const deleteSale = async (id: string) => {
+    if (!confirm('Excluir esta venda permanentemente?')) return;
+    firestoreService.deleteItem('sales', id);
+    showToast('info', 'Venda excluída.');
+  };
+
   const toggleSaleStatus = async (id: string) => {
     const sale = sales.find(s => s.id === id);
     if (!sale) return;
@@ -325,6 +331,7 @@ function App() {
             onUpdateSale={updateSale}
             onToggleStatus={toggleSaleStatus} 
             onPayInstallment={payInstallment}
+            onDeleteSale={deleteSale}
             showToast={showToast}
             initialProductId={quickSaleProductId}
             onClearQuickSale={() => setQuickSaleProductId(undefined)}
