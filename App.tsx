@@ -156,36 +156,51 @@ function App() {
   };
 
   const addSale = async (saleData: Omit<Sale, 'id' | 'date' | 'totalCost' | 'totalPrice' | 'totalProfit' | 'profitMargin' | 'paidInstallments'>) => {
-    const totalCost = saleData.items.reduce((sum, item) => sum + item.totalCost, 0);
-    const totalPrice = saleData.items.reduce((sum, item) => sum + item.totalPrice, 0);
-    const totalProfit = totalPrice - totalCost;
-    const profitMargin = totalPrice > 0 ? (totalProfit / totalPrice) * 100 : 0;
+    try {
+      const totalCost = saleData.items.reduce((sum, item) => sum + item.totalCost, 0);
+      const totalPrice = saleData.items.reduce((sum, item) => sum + item.totalPrice, 0);
+      const totalProfit = totalPrice - totalCost;
+      const profitMargin = totalPrice > 0 ? (totalProfit / totalPrice) * 100 : 0;
 
-    const newSale: Sale = {
-      ...saleData,
-      type: saleData.type || 'SALE',
-      id: crypto.randomUUID(),
-      date: Date.now(),
-      totalCost,
-      totalPrice,
-      totalProfit,
-      profitMargin,
-      downPayment: saleData.downPayment || 0,
-      paidInstallments: saleData.status === PaymentStatus.PAID ? saleData.installments : 0
-    };
+      const newSale: any = {
+        ...saleData,
+        type: saleData.type || 'SALE',
+        id: crypto.randomUUID(),
+        date: Date.now(),
+        totalCost,
+        totalPrice,
+        totalProfit,
+        profitMargin,
+        downPayment: saleData.downPayment || 0,
+        paidInstallments: saleData.status === PaymentStatus.PAID ? (saleData.installments || 1) : 0
+      };
 
-    await firestoreService.saveItem('sales', newSale.id, newSale);
-
-    if (newSale.type === 'SALE') {
-      saleData.items.forEach(item => {
-        const product = products.find(p => p.id === item.productId);
-        if (product) {
-          firestoreService.saveItem('products', product.id, { ...product, stock: product.stock - item.quantity });
-        }
+      // Firestore doesn't like undefined. Remove any undefined keys.
+      Object.keys(newSale).forEach(key => {
+        if (newSale[key] === undefined) delete newSale[key];
       });
-    }
 
-    showToast('success', newSale.type === 'COMMISSION' ? 'Comissão registrada!' : 'Venda registrada!');
+      await firestoreService.saveItem('sales', newSale.id, newSale);
+
+      if (newSale.type === 'SALE') {
+        const stockUpdates = saleData.items.map(async (item) => {
+          const product = products.find(p => p.id === item.productId);
+          if (product) {
+            return firestoreService.saveItem('products', product.id, { 
+              ...product, 
+              stock: Math.max(0, product.stock - item.quantity) 
+            });
+          }
+        });
+        await Promise.all(stockUpdates);
+      }
+
+      showToast('success', newSale.type === 'COMMISSION' ? 'Comissão registrada!' : 'Venda registrada!');
+    } catch (error) {
+      console.error("Erro ao registrar venda:", error);
+      showToast('error', 'Falha ao registrar venda. Verifique sua conexão.');
+      throw error; // Re-throw so the modal knows it failed
+    }
   };
 
   const updateSale = async (id: string, data: Partial<Sale>) => {

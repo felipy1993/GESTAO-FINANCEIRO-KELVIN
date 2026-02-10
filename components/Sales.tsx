@@ -147,6 +147,7 @@ export const Sales: React.FC<SalesProps> = ({
 }) => {
   // UI States
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<SaleType>('SALE'); // For New Sale Modal
@@ -368,50 +369,64 @@ export const Sales: React.FC<SalesProps> = ({
     showToast('info', 'Item adicionado');
   };
 
-  const handleSubmitSale = () => {
-    const customer = customers.find(c => c.id === selectedCustomerId);
-    const dueTimestamp = dueDate ? new Date(dueDate).setHours(23, 59, 59, 999) : undefined;
-    const finalDownPayment = Math.min(downPayment, cartTotals.totalPrice);
+  const handleSubmitSale = async () => {
+    if (isSubmitting) return;
     
-    let finalStatus = status;
-    let finalInstallments = installments;
-    if (finalDownPayment >= cartTotals.totalPrice) {
-       finalStatus = PaymentStatus.PAID;
-       finalInstallments = 1; 
-    }
-
-    let itemsToSave = cartItems;
-    let customerName = customer ? customer.name : 'Cliente Balcão';
-
-    if (activeTab === 'COMMISSION') {
-      if (!commissionDescription || !commissionValue) {
-        showToast('error', 'Preencha descrição e valor.');
-        return;
+    setIsSubmitting(true);
+    try {
+      const customer = customers.find(c => c.id === selectedCustomerId);
+      const dueTimestamp = dueDate ? new Date(dueDate).setHours(23, 59, 59, 999) : undefined;
+      const finalDownPayment = Math.min(downPayment, cartTotals.totalPrice);
+      
+      let finalStatus = status;
+      let finalInstallments = installments;
+      if (finalDownPayment >= cartTotals.totalPrice) {
+         finalStatus = PaymentStatus.PAID;
+         finalInstallments = 1; 
       }
-      const val = parseFloat(commissionValue);
-      itemsToSave = [{
-        productId: 'commission_ref', productName: commissionDescription, quantity: 1,
-        unitCost: 0, unitPrice: val, totalCost: 0, totalPrice: val
-      }];
-      customerName = commissionDescription;
-      if (selectedCustomerId && customer) customerName = customer.name;
-    } else {
-      if (cartItems.length === 0) return;
+
+      let itemsToSave = cartItems;
+      let customerName = customer ? customer.name : 'Cliente Balcão';
+
+      if (activeTab === 'COMMISSION') {
+        if (!commissionDescription || !commissionValue) {
+          showToast('error', 'Preencha descrição e valor.');
+          setIsSubmitting(false);
+          return;
+        }
+        const val = parseFloat(commissionValue);
+        itemsToSave = [{
+          productId: 'commission_ref', productName: commissionDescription, quantity: 1,
+          unitCost: 0, unitPrice: val, totalCost: 0, totalPrice: val
+        }];
+        customerName = commissionDescription;
+        if (selectedCustomerId && customer) customerName = customer.name;
+      } else {
+        if (cartItems.length === 0) {
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
+      await onAddSale({
+        type: activeTab,
+        customerId: selectedCustomerId || undefined,
+        customerName, items: itemsToSave,
+        paymentMethod, installments: finalInstallments,
+        downPayment: finalDownPayment, isRecurring,
+        status: finalStatus, dueDate: dueTimestamp
+      });
+
+      // Reset
+      setCartItems([]); setSelectedCustomerId(''); setStatus(PaymentStatus.PAID);
+      setInstallments(1); setDownPayment(0); setCommissionDescription(''); setCommissionValue('');
+      setPaymentMethod(PaymentMethod.CASH);
+      setIsModalOpen(false);
+    } catch (e) {
+      // Error handled by onAddSale toast
+    } finally {
+      setIsSubmitting(false);
     }
-
-    onAddSale({
-      type: activeTab,
-      customerId: selectedCustomerId || undefined,
-      customerName, items: itemsToSave,
-      paymentMethod, installments: finalInstallments,
-      downPayment: finalDownPayment, isRecurring,
-      status: finalStatus, dueDate: dueTimestamp
-    });
-
-    // Reset
-    setCartItems([]); setSelectedCustomerId(''); setStatus(PaymentStatus.PAID);
-    setInstallments(1); setDownPayment(0); setCommissionDescription(''); setCommissionValue('');
-    setIsModalOpen(false);
   };
 
   const handleSaveNewDate = () => {
