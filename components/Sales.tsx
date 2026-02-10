@@ -63,7 +63,9 @@ const ReceiptModal = ({ sale, onClose }: { sale: Sale; onClose: () => void }) =>
         scale: 2,
         logging: false,
         useCORS: true,
-        allowTaint: true
+        // allowTaint must be FALSE to enable toBlob/toDataURL. 
+        // We use useCORS for images.
+        allowTaint: false 
       });
       
       canvas.toBlob(async (blob) => {
