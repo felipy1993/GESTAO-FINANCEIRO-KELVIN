@@ -176,7 +176,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       return acc + amount;
     }, 0);
 
+    
     const profitMonth = filteredSales.reduce((acc, s) => acc + s.totalProfit, 0);
+
+    // Calculate PENDING amount ONLY for the SELECTED month
+    const pendingMonth = sales.reduce((acc, s) => {
+      let amount = 0;
+      if (s.customInstallments && s.customInstallments.length > 0) {
+        s.customInstallments.forEach(inst => {
+          if (inst.status !== PaymentStatus.PAID) {
+            const dueDate = new Date(inst.dueDate);
+            if (dueDate.getMonth() === selectedMonth && dueDate.getFullYear() === selectedYear) {
+              amount += inst.value;
+            }
+          }
+        });
+      } else if (s.dueDate) {
+        const totalToInstall = s.totalPrice - (s.downPayment || 0);
+        const installmentsCount = s.installments || 1;
+        const installmentValue = totalToInstall / installmentsCount;
+        const baseDate = new Date(s.dueDate);
+        for (let i = 0; i < installmentsCount; i++) {
+          if ((s.paidInstallments || 0) <= i) {
+            const instDate = new Date(baseDate);
+            instDate.setMonth(instDate.getMonth() + i);
+            if (instDate.getMonth() === selectedMonth && instDate.getFullYear() === selectedYear) {
+              amount += installmentValue;
+            }
+          }
+        }
+      }
+      return acc + amount;
+    }, 0);
     
     // Calculate pending/overdue sales (Keeping this GLOBAL for visibility)
     const now = Date.now();
@@ -248,7 +279,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
     const alerts = [...overdueInstallments, ...upcomingInstallments].sort((a,b) => a.dueDate - b.dueDate);
 
-    return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal, receivedMonth, profitMonth };
+    return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal, receivedMonth, profitMonth, pendingMonth };
   }, [sales, selectedMonth, selectedYear]);
 
   // --- Date Helpers ---
@@ -430,7 +461,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
           </div>
           <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">A Receber (Mês)</p>
           <h3 className="text-2xl md:text-3xl font-black text-amber-400 mt-2 drop-shadow-sm">
-            R$ {(metrics.totalRevenue - metrics.receivedMonth).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            R$ {metrics.pendingMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </h3>
           <div className="mt-4 text-[10px] text-slate-500 font-bold">
              DÉBITO PENDENTE
