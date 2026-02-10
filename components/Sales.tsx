@@ -16,6 +16,7 @@ interface SalesProps {
   onToggleStatus: (id: string) => void;
   onPayInstallment: (id: string) => void;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;
+  initialProductId?: string;
 }
 
 // --- Subcomponents ---
@@ -131,7 +132,17 @@ const ReceiptModal = ({ sale, onClose }: { sale: Sale; onClose: () => void }) =>
 
 // --- Main Component ---
 
-export const Sales: React.FC<SalesProps> = ({ sales, products, customers, onAddSale, onUpdateSale, onToggleStatus, onPayInstallment, showToast }) => {
+export const Sales: React.FC<SalesProps> = ({ 
+  sales, 
+  products, 
+  customers, 
+  onAddSale, 
+  onUpdateSale, 
+  onToggleStatus, 
+  onPayInstallment, 
+  showToast,
+  initialProductId
+}) => {
   // UI States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [receiptSale, setReceiptSale] = useState<Sale | null>(null);
@@ -170,6 +181,28 @@ export const Sales: React.FC<SalesProps> = ({ sales, products, customers, onAddS
     }
     setDueDate(today.toISOString().split('T')[0]);
   }, [status, isModalOpen]);
+
+  // Handle Quick Sale from Products Screen
+  useEffect(() => {
+    if (initialProductId && products.length > 0) {
+      const product = products.find(p => p.id === initialProductId);
+      if (product) {
+        setIsModalOpen(true);
+        setActiveTab('SALE');
+        const newItem: SaleItem = {
+          productId: product.id,
+          productName: product.name,
+          quantity: 1,
+          unitCost: product.cost,
+          unitPrice: product.price,
+          totalCost: product.cost,
+          totalPrice: product.price,
+        };
+        setCartItems([newItem]);
+        showToast('info', `${product.name} adicionado para venda rápida`);
+      }
+    }
+  }, [initialProductId, products, showToast]);
 
   // --- Helpers ---
   

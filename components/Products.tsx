@@ -8,10 +8,18 @@ interface ProductsProps {
   onAddProduct: (product: Omit<Product, 'id'>) => void;
   onUpdateProduct: (id: string, product: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
+  onSellProduct: (product: Product) => void;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
-export const Products: React.FC<ProductsProps> = ({ products, onAddProduct, onUpdateProduct, onDeleteProduct, showToast }) => {
+export const Products: React.FC<ProductsProps> = ({ 
+  products, 
+  onAddProduct, 
+  onUpdateProduct, 
+  onDeleteProduct, 
+  onSellProduct,
+  showToast 
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -182,6 +190,16 @@ export const Products: React.FC<ProductsProps> = ({ products, onAddProduct, onUp
                     <p className="text-xs text-slate-500 mb-1 font-medium">Preço</p>
                     <p className="text-emerald-400 font-black text-xl drop-shadow-sm">R$ {product.price.toFixed(2)}</p>
                   </div>
+                </div>
+                
+                <div className="mt-5 pt-2">
+                  <button 
+                    onClick={() => onSellProduct(product)}
+                    className="w-full bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all border-t border-emerald-400"
+                  >
+                    <Plus size={20} strokeWidth={3} />
+                    VENDER AGORA
+                  </button>
                 </div>
                 
                 <div className="mt-4 flex items-center justify-between text-xs bg-slate-900/30 p-2 rounded-lg">

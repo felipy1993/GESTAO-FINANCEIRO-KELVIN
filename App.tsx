@@ -26,6 +26,7 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [quickSaleProductId, setQuickSaleProductId] = useState<string | undefined>(undefined);
 
   // -- Toasts --
   const showToast = (type: 'success' | 'error' | 'info', message: string) => {
@@ -240,6 +241,11 @@ function App() {
     showToast('info', 'Compromisso removido.');
   };
 
+  const handleSellProduct = (product: Product) => {
+    setQuickSaleProductId(product.id);
+    setCurrentView('SALES');
+  };
+
   // -- Render --
   
   if (initializing) {
@@ -284,6 +290,7 @@ function App() {
             onToggleStatus={toggleSaleStatus} 
             onPayInstallment={payInstallment}
             showToast={showToast}
+            initialProductId={quickSaleProductId}
           />
         );
       case 'PRODUCTS':
@@ -293,6 +300,7 @@ function App() {
             onAddProduct={addProduct} 
             onUpdateProduct={updateProduct}
             onDeleteProduct={deleteProduct} 
+            onSellProduct={handleSellProduct}
             showToast={showToast}
           />
         );
@@ -323,7 +331,10 @@ function App() {
   };
 
   return (
-    <Layout currentView={currentView} onNavigate={setCurrentView} sales={sales}>
+    <Layout currentView={currentView} onNavigate={(view) => {
+      if (view !== 'SALES') setQuickSaleProductId(undefined);
+      setCurrentView(view);
+    }} sales={sales}>
       {renderView()}
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </Layout>
