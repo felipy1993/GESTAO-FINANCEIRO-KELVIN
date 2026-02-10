@@ -702,24 +702,43 @@ export const Sales: React.FC<SalesProps> = ({
                  {/* Product Sale Logic */}
                  {activeTab === 'SALE' && (
                      <div className="bg-slate-800/30 p-4 rounded-2xl border border-slate-700/50 shadow-inner">
-                        <div className="flex gap-2 mb-4">
-                           <select className={`flex-1 bg-slate-950 border rounded-xl px-4 py-3 text-slate-100 outline-none shadow-sm transition-colors ${currentProductId && products.find(p => p.id === currentProductId)?.stock === 0 ? 'border-rose-500/50 focus:border-rose-500' : 'border-slate-700 focus:border-emerald-500'}`} value={currentProductId} onChange={(e) => setCurrentProductId(e.target.value)}>
-                              <option value="">Selecione o Produto...</option>
-                              {products.map(p => (
-                                <option key={p.id} value={p.id} disabled={p.stock <= 0}>
-                                  {p.name} - R$ {p.price.toFixed(2)} {p.stock <= 0 ? '(SEM ESTOQUE)' : `(${p.stock} un)`}
-                                </option>
-                              ))}
-                           </select>
-                           <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} className="w-20 bg-slate-950 border border-slate-700 rounded-xl px-2 text-center text-slate-100 outline-none focus:border-emerald-500 shadow-sm" />
-                           <button 
-                             onClick={handleAddItem} 
-                             disabled={!currentProductId || products.find(p => p.id === currentProductId)?.stock === 0} 
-                             className="bg-emerald-500 text-white p-3 rounded-xl disabled:opacity-50 disabled:bg-slate-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-transform"
-                           >
-                             <Plus size={20} />
-                           </button>
-                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                            <div className="flex-1">
+                               <label className="text-[10px] text-slate-500 font-bold mb-1 ml-1 block">PRODUTO</label>
+                               <select 
+                                 className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-slate-100 outline-none shadow-sm transition-colors ${currentProductId && products.find(p => p.id === currentProductId)?.stock === 0 ? 'border-rose-500/50 focus:border-rose-500' : 'border-slate-700 focus:border-emerald-500'}`} 
+                                 value={currentProductId} 
+                                 onChange={(e) => setCurrentProductId(e.target.value)}
+                               >
+                                  <option value="">Selecione o Produto...</option>
+                                  {products.map(p => (
+                                    <option key={p.id} value={p.id} disabled={p.stock <= 0}>
+                                      {p.name} - R$ {p.price.toFixed(2)} {p.stock <= 0 ? '(SEM ESTOQUE)' : `(${p.stock} un)`}
+                                    </option>
+                                  ))}
+                               </select>
+                            </div>
+                            <div className="flex gap-2 items-end">
+                               <div className="w-24">
+                                  <label className="text-[10px] text-slate-500 font-bold mb-1 ml-1 block">QTD.</label>
+                                  <input 
+                                    type="number" 
+                                    min="1" 
+                                    value={quantity} 
+                                    onChange={(e) => setQuantity(Number(e.target.value))} 
+                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-2 py-3 text-center text-slate-100 outline-none focus:border-emerald-500 shadow-sm" 
+                                  />
+                               </div>
+                               <button 
+                                 onClick={handleAddItem} 
+                                 disabled={!currentProductId || products.find(p => p.id === currentProductId)?.stock === 0} 
+                                 className="flex-1 sm:w-14 h-[50px] bg-emerald-500 text-white flex items-center justify-center rounded-xl disabled:opacity-50 disabled:bg-slate-700 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all"
+                                 title="Adicionar ao Carrinho"
+                               >
+                                 <Plus size={24} />
+                               </button>
+                            </div>
+                         </div>
                         {currentProductId && products.find(p => p.id === currentProductId)?.stock === 0 && (
                           <p className="text-rose-500 text-xs font-bold mb-2 animate-pulse flex items-center gap-1">
                             <AlertTriangle size={12} /> Este produto está esgotado no momento.
@@ -739,7 +758,7 @@ export const Sales: React.FC<SalesProps> = ({
 
                  {/* Commission Logic */}
                  {activeTab === 'COMMISSION' && (
-                    <div className="bg-purple-900/10 p-4 rounded-2xl border border-purple-500/20 grid grid-cols-2 gap-4 shadow-inner">
+                    <div className="bg-purple-900/10 p-4 rounded-2xl border border-purple-500/20 grid grid-cols-1 md:grid-cols-2 gap-4 shadow-inner">
                        <div className="col-span-2 md:col-span-1">
                           <label className="text-xs text-purple-300 font-bold mb-1 block">Descrição</label>
                           <input className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 outline-none focus:border-purple-500 shadow-sm" placeholder="Ex: Venda Shopee" value={commissionDescription} onChange={(e) => setCommissionDescription(e.target.value.toUpperCase())} />
@@ -752,7 +771,7 @@ export const Sales: React.FC<SalesProps> = ({
                  )}
 
                  {/* Shared Details */}
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="col-span-2 md:col-span-1">
                        <label className="text-xs text-slate-500 font-bold mb-1 block">Cliente</label>
                        <select className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-2 text-slate-100 outline-none focus:border-emerald-500 shadow-sm" value={selectedCustomerId} onChange={(e) => setSelectedCustomerId(e.target.value)}>
@@ -769,7 +788,7 @@ export const Sales: React.FC<SalesProps> = ({
                     </div>
 
                     {(status === PaymentStatus.PENDING || (activeTab === 'SALE' && paymentMethod === PaymentMethod.CARD)) && (
-                       <div className="col-span-2 bg-slate-950 p-4 rounded-xl border border-slate-800 grid grid-cols-2 gap-4 shadow-inner">
+                       <div className="col-span-2 bg-slate-950 p-4 rounded-xl border border-slate-800 grid grid-cols-1 md:grid-cols-2 gap-4 shadow-inner">
                           <div>
                              <label className="text-xs text-slate-500 mb-1 block">Entrada (R$)</label>
                              <input type="number" className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-2 text-slate-100" value={downPayment} onChange={(e) => setDownPayment(Number(e.target.value))} />
