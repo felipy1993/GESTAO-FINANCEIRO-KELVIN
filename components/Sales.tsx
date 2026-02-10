@@ -3,6 +3,7 @@ import {
   Plus, Search, CheckCircle, Clock, ShoppingCart, AlertCircle, 
   Calendar, Filter, X, ChevronDown, ChevronUp, DollarSign, 
   Edit2, Briefcase, FileText, Printer, TrendingUp, Wallet, AlertTriangle,
+  Share2,
   Trash2
 } from 'lucide-react';
 import { Sale, Product, Customer, PaymentMethod, SaleItem, PaymentStatus, SaleType, Installment } from '../types';
@@ -42,90 +43,200 @@ const SummaryCard = ({ title, value, subtext, icon: Icon, colorClass, bgClass, s
 
 const ReceiptModal = ({ sale, onClose }: { sale: Sale; onClose: () => void }) => {
   const subtotal = sale.totalPrice;
-  const discount = 0; // Future proofing
+  const discount = 0;
   const total = subtotal - discount;
 
+  const handleShare = async () => {
+    const element = document.getElementById('premium-receipt');
+    if (!element) return;
+    
+    try {
+      const canvas = await html2canvas(element, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true
+      });
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `recibo-${sale.id.slice(0,8)}.png`, { type: 'image/png' });
+        
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: 'Recibo Kelvin Financeiro',
+              text: `Recibo de venda para ${sale.customerName || 'Cliente'}`
+            });
+          } catch (err) {
+            console.error('Erro ao compartilhar:', err);
+          }
+        } else {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `recibo-${sale.id.slice(0,8)}.png`;
+          link.click();
+          URL.revokeObjectURL(url);
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao gerar imagem:', error);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-white text-slate-900 w-full max-w-md rounded-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 transform-gpu">
-        <div className="bg-slate-100 p-4 border-b border-slate-200 flex justify-between items-center print:hidden">
-          <h3 className="font-bold text-slate-700 flex items-center gap-2">
-            <FileText size={18} /> Visualizar Recibo
-          </h3>
-          <div className="flex gap-2">
-            <button onClick={() => window.print()} className="p-2 hover:bg-slate-200 rounded-full text-slate-600" title="Imprimir">
-              <Printer size={20} />
-            </button>
-            <button onClick={onClose} className="p-2 hover:bg-slate-200 rounded-full text-slate-600">
-              <X size={20} />
-            </button>
+    <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-[100] flex items-center justify-center p-4 overflow-y-auto">
+      <div className="w-full max-w-lg mb-8 mt-8 animate-in zoom-in-95 duration-300">
+        {/* Actions Bar */}
+        <div className="flex justify-between items-center mb-4 bg-slate-900/50 p-2 rounded-2xl border border-white/5 backdrop-blur-md sticky top-0 z-10">
+          <button onClick={onClose} className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/5 shadow-lg active:scale-95">
+             <X size={20} />
+          </button>
+          <div className="flex gap-3">
+             <button onClick={() => window.print()} className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-all border border-white/5 shadow-lg active:scale-95" title="Imprimir">
+               <Printer size={20} />
+             </button>
+             <button onClick={handleShare} className="flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-white rounded-xl font-bold transition-all shadow-lg shadow-emerald-500/20 active:scale-95">
+               <Share2 size={20} /> Compartilhar Recibo
+             </button>
           </div>
         </div>
-        
-        <div className="p-8 font-mono text-sm leading-relaxed" id="printable-receipt">
-          <div className="text-center mb-6 border-b border-slate-300 pb-4">
-            <div className="flex flex-col items-center mb-4">
-              <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain mb-2" />
-              <h2 className="text-xl font-bold uppercase tracking-wider mb-1">Financeiro Kelvin</h2>
-              <p className="text-xs text-slate-500">Gestão Inteligente</p>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">{new Date(sale.date).toLocaleString('pt-BR')}</p>
-          </div>
 
-          <div className="mb-6">
-            <div className="flex justify-between mb-1">
-              <span className="text-slate-500">Cliente:</span>
-              <span className="font-bold uppercase">{sale.customerName || 'Consumidor Final'}</span>
+        {/* The Receipt Itself */}
+        <div id="premium-receipt" className="bg-white text-slate-900 rounded-3xl shadow-2xl overflow-hidden relative border-[12px] border-white">
+          {/* Header Design */}
+          <div className="bg-slate-950 p-8 text-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+              <div className="absolute -top-24 -left-24 w-64 h-64 bg-emerald-500 rounded-full blur-3xl"></div>
+              <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-emerald-500 rounded-full blur-3xl"></div>
             </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-slate-500">ID Venda:</span>
-              <span>#{sale.id.slice(0, 8)}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Pagamento:</span>
-              <span>{sale.paymentMethod === 'CARD' ? 'Cartão' : sale.paymentMethod === 'PIX' ? 'PIX' : 'Dinheiro'}</span>
+            
+            <div className="relative z-10 flex flex-col items-center">
+              <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/30 mb-4 rotate-3">
+                <FileText size={40} className="text-white" />
+              </div>
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Financeiro Kelvin</h2>
+              <div className="h-1 w-12 bg-emerald-500 rounded-full mt-2 mb-2"></div>
+              <p className="text-emerald-500/80 text-[10px] uppercase font-bold tracking-[0.2em]">Comprovante de Pagamento</p>
             </div>
           </div>
 
-          <table className="w-full mb-6">
-            <thead>
-              <tr className="border-b border-slate-300 text-left">
-                <th className="py-2">Item</th>
-                <th className="py-2 text-right">Qtd</th>
-                <th className="py-2 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {sale.items.map((item, i) => (
-                <tr key={i}>
-                  <td className="py-2">{item.productName}</td>
-                  <td className="py-2 text-right">x{item.quantity}</td>
-                  <td className="py-2 text-right">R$ {item.totalPrice.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="border-t-2 border-slate-800 pt-4 space-y-2">
-            <div className="flex justify-between text-lg font-bold">
-              <span>TOTAL</span>
-              <span>R$ {total.toFixed(2)}</span>
+          <div className="p-8">
+            {/* Main Info */}
+            <div className="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Cliente</p>
+                <p className="font-black text-slate-900 truncate">{sale.customerName || 'Consumidor Final'}</p>
+              </div>
+              <div className="space-y-1 text-right">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Data da Venda</p>
+                <p className="font-black text-slate-900">{new Date(sale.date).toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Registro</p>
+                <p className="font-black text-slate-700">#{sale.id.slice(0, 8).toUpperCase()}</p>
+              </div>
+              <div className="space-y-1 text-right">
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Pagamento</p>
+                <p className="font-black text-slate-700">{sale.paymentMethod === 'CARD' ? 'Cartão' : sale.paymentMethod === 'PIX' ? 'PIX' : 'Dinheiro'}</p>
+              </div>
             </div>
-            {sale.downPayment && sale.downPayment > 0 ? (
-               <div className="flex justify-between text-slate-500 text-xs">
-                 <span>Entrada/Pago:</span>
-                 <span>R$ {sale.downPayment.toFixed(2)}</span>
+
+            {/* Items Table */}
+            <div className="mb-8">
+              <h4 className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-4 border-b border-slate-100 pb-2">Produtos / Serviços</h4>
+              <table className="w-full">
+                <thead>
+                  <tr className="text-left text-[10px] font-bold text-slate-400">
+                    <th className="pb-4">Descrição</th>
+                    <th className="pb-4 text-center">Qtd</th>
+                    <th className="pb-4 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 text-sm">
+                  {sale.items.map((item, i) => (
+                    <tr key={i} className="group">
+                      <td className="py-4 font-bold text-slate-700">{item.productName}</td>
+                      <td className="py-4 text-center font-bold text-slate-900 bg-slate-50/50 rounded-lg">x{item.quantity}</td>
+                      <td className="py-4 text-right font-black text-slate-900">R$ {item.totalPrice.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Financial Summary */}
+            <div className="bg-slate-900 p-8 rounded-3xl text-white shadow-xl relative overflow-hidden group">
+               <div className="absolute right-0 bottom-0 p-4 opacity-5 transform rotate-12 scale-150 group-hover:scale-[1.7] transition-transform duration-700">
+                 <DollarSign size={80} />
                </div>
-            ) : null}
-            {sale.installments > 1 && (
-               <div className="text-right text-xs text-slate-500 mt-2">
-                 Parcelado em {sale.installments}x
+               
+               <div className="relative z-10 space-y-4">
+                 <div className="flex justify-between items-center text-slate-400 uppercase text-[10px] font-black tracking-widest leading-none">
+                    <span>Valor Total</span>
+                    <span>Entrada</span>
+                 </div>
+                 <div className="flex justify-between items-end">
+                    <div className="text-3xl font-black text-white">R$ {sale.totalPrice.toFixed(2)}</div>
+                    <div className="text-xl font-black text-emerald-400">R$ {sale.downPayment?.toFixed(2) || '0,00'}</div>
+                 </div>
                </div>
+            </div>
+
+            {/* Installments Section */}
+            {(sale.installments > 1 || (sale.customInstallments && sale.customInstallments.length > 0)) && (
+              <div className="mt-8">
+                <h4 className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                   <Calendar size={14} /> Plano de Parcelamento
+                </h4>
+                <div className="grid grid-cols-1 gap-2 bg-slate-50 p-2 rounded-2xl">
+                  {(sale.customInstallments && sale.customInstallments.length > 0 ? sale.customInstallments : Array.from({ length: sale.installments }).map((_, i) => {
+                    const d = new Date(sale.dueDate || sale.date);
+                    d.setMonth(d.getMonth() + i);
+                    return { number: i + 1, dueDate: d.getTime(), value: (sale.totalPrice - (sale.downPayment || 0)) / sale.installments, status: i < sale.paidInstallments ? PaymentStatus.PAID : PaymentStatus.PENDING };
+                  })).map((inst, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-3 rounded-xl bg-white border border-slate-100 shadow-sm">
+                       <div className="flex items-center gap-3">
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black ${inst.status === PaymentStatus.PAID ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                           {inst.number}
+                         </div>
+                         <div className="leading-tight">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase">Vencimento</p>
+                            <p className="text-xs font-black text-slate-700">{new Date(inst.dueDate).toLocaleDateString('pt-BR')}</p>
+                         </div>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-xs font-black text-slate-900">R$ {inst.value.toFixed(2)}</p>
+                          <p className={`text-[8px] font-black uppercase tracking-widest ${inst.status === PaymentStatus.PAID ? 'text-emerald-500' : 'text-slate-400'}`}>
+                            {inst.status === PaymentStatus.PAID ? 'Liquidado' : 'Aguardando'}
+                          </p>
+                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
-          </div>
 
-          <div className="mt-8 text-center text-xs text-slate-400">
-            <p>Obrigado pela preferência!</p>
+            <div className="mt-12 text-center">
+              <div className="flex justify-center gap-2 mb-4">
+                 <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+                 <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+                 <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+              </div>
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-4">Obrigado pela preferência!</p>
+              <div className="text-[8px] text-slate-400 font-bold uppercase leading-relaxed max-w-[200px] mx-auto opacity-50">
+                Documento emitido digitalmente pelo Sistema Financeiro Kelvin • Registro Irrevogável
+              </div>
+            </div>
+          </div>
+          
+          {/* Decorative bottom edge */}
+          <div className="h-2 bg-slate-950 flex">
+             {Array.from({ length: 20 }).map((_, i) => (
+               <div key={i} className="flex-1 h-full bg-white first:hidden last:hidden odd:opacity-0"></div>
+             ))}
           </div>
         </div>
       </div>
