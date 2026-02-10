@@ -17,6 +17,7 @@ interface SalesProps {
   onPayInstallment: (id: string) => void;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;
   initialProductId?: string;
+  onClearQuickSale?: () => void;
 }
 
 // --- Subcomponents ---
@@ -141,7 +142,8 @@ export const Sales: React.FC<SalesProps> = ({
   onToggleStatus, 
   onPayInstallment, 
   showToast,
-  initialProductId
+  initialProductId,
+  onClearQuickSale
 }) => {
   // UI States
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -189,10 +191,12 @@ export const Sales: React.FC<SalesProps> = ({
       if (product) {
         if (product.stock <= 0) {
           showToast('error', `O produto ${product.name} está sem estoque!`);
+          onClearQuickSale?.();
           return;
         }
         setIsModalOpen(true);
         setActiveTab('SALE');
+        setCurrentProductId(product.id);
         const newItem: SaleItem = {
           productId: product.id,
           productName: product.name,
@@ -203,10 +207,11 @@ export const Sales: React.FC<SalesProps> = ({
           totalPrice: product.price,
         };
         setCartItems([newItem]);
-        showToast('info', `${product.name} adicionado para venda rápida`);
+        showToast('info', `${product.name} pronto para venda`);
+        onClearQuickSale?.();
       }
     }
-  }, [initialProductId, products, showToast]);
+  }, [initialProductId, products, showToast, onClearQuickSale]);
 
   // --- Helpers ---
   

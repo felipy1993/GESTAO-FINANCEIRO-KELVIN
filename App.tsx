@@ -291,6 +291,7 @@ function App() {
             onPayInstallment={payInstallment}
             showToast={showToast}
             initialProductId={quickSaleProductId}
+            onClearQuickSale={() => setQuickSaleProductId(undefined)}
           />
         );
       case 'PRODUCTS':
