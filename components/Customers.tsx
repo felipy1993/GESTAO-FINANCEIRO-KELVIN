@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Users, Phone, FileText, Plus, Trash2, Edit2, Search, X, MapPin, Loader2 } from 'lucide-react';
-import { Customer } from '../types';
+import { Wallet, Users, Phone, FileText, Plus, Trash2, Edit2, Search, X, MapPin, Loader2 } from 'lucide-react';
+import { Customer, Sale } from '../types';
 
 interface CustomersProps {
   customers: Customer[];
+  sales: Sale[];
   onAddCustomer: (c: Omit<Customer, 'id' | 'createdAt'>) => void;
   onUpdateCustomer: (id: string, c: Partial<Customer>) => void;
   onDeleteCustomer: (id: string) => void;
@@ -15,7 +16,7 @@ const BRAZIL_STATES = [
   'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
 ];
 
-export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, onUpdateCustomer, onDeleteCustomer, showToast }) => {
+export const Customers: React.FC<CustomersProps> = ({ customers, sales, onAddCustomer, onUpdateCustomer, onDeleteCustomer, showToast }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -231,6 +232,22 @@ export const Customers: React.FC<CustomersProps> = ({ customers, onAddCustomer, 
                     <span className="line-clamp-2">{customer.notes}</span>
                   </div>
                 )}
+              
+                <div className="mt-3 pt-3 border-t border-slate-800/50">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <Wallet size={16} className="text-emerald-500" />
+                      <span>Total em Produtos:</span>
+                    </div>
+                    <span className="font-bold text-emerald-400">
+                      {sales
+                        .filter(s => s.customerId === customer.id && s.type === 'SALE')
+                        .reduce((acc, curr) => acc + curr.totalPrice, 0)
+                        .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                      }
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           ))}

@@ -375,6 +375,7 @@ function App() {
         return (
           <Customers 
             customers={customers} 
+            sales={sales}
             onAddCustomer={addCustomer} 
             onUpdateCustomer={updateCustomer}
             onDeleteCustomer={deleteCustomer} 

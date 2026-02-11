@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download, CheckCircle, Clock } from 'lucide-react';
+import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download, CheckCircle, Clock, Package } from 'lucide-react';
 import { Sale, Product, PaymentStatus } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -139,6 +139,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
   }, [sales]);
 
   // --- Metrics Calculation ---
+  const totalStockCost = useMemo(() => {
+    return products.reduce((acc, p) => acc + (p.cost * p.stock), 0);
+  }, [products]);
+
   const metrics = useMemo(() => {
     const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.totalPrice, 0);
     const totalCost = filteredSales.reduce((acc, sale) => acc + sale.totalCost, 0);
@@ -427,7 +431,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       )}
 
       {/* KPI Cards - 3D ANIMATED */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
         {/* Received Month Card */}
         <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
@@ -479,6 +483,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
           </h3>
           <div className="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
              GERAL ACUMULADO
+          </div>
+        </div>
+
+        {/* Total Stock Investment Card */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-blue-500/10">
+           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+            <Package size={80} className="text-blue-500" />
+          </div>
+          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Investimento Total (Mês)</p>
+          <h3 className="text-2xl md:text-3xl font-black text-blue-400 mt-2 drop-shadow-sm">
+            R$ {(totalStockCost + metrics.totalCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <div className="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
+             VENDIDOS + ESTOQUE
           </div>
         </div>
       </div>
