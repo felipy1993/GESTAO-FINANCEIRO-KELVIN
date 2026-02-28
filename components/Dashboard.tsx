@@ -151,22 +151,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     
     // Calculate REAL RECEIVED amount in THIS specific filtered month
-    // We need to look at down payments OR paid installments that occurred in this month
     const receivedMonth = filteredSales.reduce((acc, s) => {
       let amount = 0;
-      
-      // If sale date is in this month, add downpayment
       const saleDate = new Date(s.date);
       if (saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear) {
         amount += (s.downPayment || 0);
       }
-
-      // If it's fully PAID and in this month, and no custom installments (simple sale)
       if (s.status === PaymentStatus.PAID && !s.customInstallments && saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear) {
         amount += (s.totalPrice - (s.downPayment || 0));
       }
-
-      // Check custom installments paid in this month
       if (s.customInstallments) {
         s.customInstallments.forEach(inst => {
           if (inst.status === PaymentStatus.PAID && inst.paidAt) {
@@ -177,11 +170,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
           }
         });
       }
-
       return acc + amount;
     }, 0);
 
-    
     const profitMonth = filteredSales.reduce((acc, s) => acc + s.totalProfit, 0);
 
     // Calculate PENDING amount ONLY for the SELECTED month
@@ -214,7 +205,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       return acc + amount;
     }, 0);
     
-    // Calculate pending/overdue sales (Keeping this GLOBAL for visibility)
+    // Calculate pending/overdue sales (GLOBAL)
     const now = Date.now();
     const pendingSales = sales.filter(s => s.status === PaymentStatus.PENDING);
     const pendingTotal = pendingSales.reduce((acc, s) => {
@@ -222,70 +213,63 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
         const installmentValue = totalToInstall / (s.installments || 1);
         const paidAmount = installmentValue * (s.paidInstallments || 0);
         const remaining = totalToInstall - paidAmount;
-        
         return acc + remaining;
     }, 0);
 
-    // Advanced Alert Logic: Expand Sales into Installments
+    // Alerts logic
     let allPendingInstallments: Array<{
-      id: string; // Sale ID + Installment Number
-      saleId: string;
-      customerName: string;
-      installmentNumber: number;
-      totalInstallments: number;
-      value: number;
-      dueDate: number;
+      id: string; saleId: string; customerName: string; installmentNumber: number;
+      totalInstallments: number; value: number; dueDate: number;
     }> = [];
 
     pendingSales.forEach(sale => {
-      // Prioritize custom installments if they exist
       if (sale.customInstallments && sale.customInstallments.length > 0) {
         sale.customInstallments.forEach(inst => {
           if (inst.status !== PaymentStatus.PAID) {
             allPendingInstallments.push({
-              id: inst.id,
-              saleId: sale.id,
-              customerName: sale.customerName || 'Cliente',
-              installmentNumber: inst.number,
-              totalInstallments: sale.installments,
-              value: inst.value,
-              dueDate: inst.dueDate
+              id: inst.id, saleId: sale.id, customerName: sale.customerName || 'Cliente',
+              installmentNumber: inst.number, totalInstallments: sale.installments,
+              value: inst.value, dueDate: inst.dueDate
             });
           }
         });
         return;
       }
-
-      // Fallback to automatic calculation
       if (!sale.dueDate) return;
       const totalToInstall = sale.totalPrice - (sale.downPayment || 0);
       const installments = sale.installments || 1;
       const installmentValue = totalToInstall / installments;
       const baseDate = new Date(sale.dueDate);
-
       for (let i = 0; i < installments; i++) {
         if ((sale.paidInstallments || 0) > i) continue;
         const date = new Date(baseDate);
         date.setMonth(date.getMonth() + i);
         allPendingInstallments.push({
-          id: `${sale.id}-${i+1}`,
-          saleId: sale.id,
-          customerName: sale.customerName || 'Cliente',
-          installmentNumber: i + 1,
-          totalInstallments: installments,
-          value: installmentValue,
-          dueDate: date.getTime()
+          id: `${sale.id}-${i+1}`, saleId: sale.id, customerName: sale.customerName || 'Cliente',
+          installmentNumber: i + 1, totalInstallments: installments,
+          value: installmentValue, dueDate: date.getTime()
         });
       }
     });
 
     const overdueInstallments = allPendingInstallments.filter(i => i.dueDate < now);
     const upcomingInstallments = allPendingInstallments.filter(i => i.dueDate >= now && i.dueDate <= now + (7 * 24 * 60 * 60 * 1000));
-
     const alerts = [...overdueInstallments, ...upcomingInstallments].sort((a,b) => a.dueDate - b.dueDate);
 
-    return { totalRevenue, totalCost, netProfit, margin, alerts, pendingTotal, receivedMonth, profitMonth, pendingMonth };
-  }, [sales, selectedMonth, selectedYear]);
+    // USER REQUEST: Invested Amount (based on product entry date)
+    const totalInvested = products.reduce((acc, p) => {
+      const createdDate = new Date(p.createdAt || 0);
+      if (createdDate.getMonth() === selectedMonth && createdDate.getFullYear() === selectedYear) {
+        return acc + (p.cost * p.stock);
+      }
+      return acc;
+    }, 0);
+
+    return { 
+      totalRevenue, totalCost, netProfit, margin, alerts, 
+      pendingTotal, receivedMonth, profitMonth, pendingMonth, totalInvested 
+    };
+  }, [sales, filteredSales, products, selectedMonth, selectedYear]);
 
   // --- Date Helpers ---
   const getDaysDiff = (dueDate: number) => {
@@ -453,9 +437,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
             </div>
             <div className="flex flex-col h-full">
               <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total Investido</p>
-              <p className="text-[10px] text-slate-500 mb-3 font-medium">Quanto você pagou em produtos vendidos</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">O que saiu do bolso para estoque no mês</p>
               <h3 className="text-3xl font-black text-rose-400 drop-shadow-sm">
-                R$ {metrics.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                R$ {metrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
               <div className="mt-auto pt-5 flex items-center text-[10px] text-rose-300/80 font-bold">
                 SAÍDA DE CAPITAL (MÊS)
