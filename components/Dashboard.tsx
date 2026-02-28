@@ -257,21 +257,34 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     const alerts = [...overdueInstallments, ...upcomingInstallments].sort((a,b) => a.dueDate - b.dueDate);
 
     // USER REQUEST: Invested Amount (based on product entry date)
-    const totalInvested = products.reduce((acc, p) => {
+    const investedItems: Array<{name: string, cost: number, totalStock: number, investedValue: number}> = [];
+    let totalInvested = 0;
+    
+    products.forEach(p => {
       const createdDate = new Date(p.createdAt || Date.now());
       if (createdDate.getMonth() === selectedMonth && createdDate.getFullYear() === selectedYear) {
         const soldCount = sales.reduce((sum, s) => {
           const item = s.items.find(i => i.productId === p.id);
           return sum + (item ? item.quantity : 0);
         }, 0);
-        return acc + (p.cost * (p.stock + soldCount));
+        const totalStock = p.stock + soldCount;
+        const investedValue = p.cost * totalStock;
+        
+        if (investedValue > 0) {
+           totalInvested += investedValue;
+           investedItems.push({
+             name: p.name,
+             cost: p.cost,
+             totalStock: totalStock,
+             investedValue: investedValue
+           });
+        }
       }
-      return acc;
-    }, 0);
+    });
 
     return { 
       totalRevenue, totalCost, netProfit, margin, alerts, 
-      pendingTotal, receivedMonth, profitMonth, pendingMonth, totalInvested 
+      pendingTotal, receivedMonth, profitMonth, pendingMonth, totalInvested, investedItems 
     };
   }, [sales, filteredSales, products, selectedMonth, selectedYear]);
 
@@ -439,13 +452,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
               <Wallet size={70} className="text-rose-500" />
             </div>
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full relative z-10">
               <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total Investido</p>
               <p className="text-[10px] text-slate-500 mb-3 font-medium">O que saiu do bolso para estoque no mês</p>
-              <h3 className="text-3xl font-black text-rose-400 drop-shadow-sm">
+              <h3 className="text-3xl font-black text-rose-400 drop-shadow-sm mb-4">
                 R$ {metrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              <div className="mt-auto pt-5 flex items-center text-[10px] text-rose-300/80 font-bold">
+              
+              <div className="bg-slate-900/80 p-3 rounded-xl border border-rose-500/20 max-h-32 overflow-y-auto custom-scrollbar mb-4">
+                 <p className="text-[9px] text-slate-400 font-bold mb-2 uppercase tracking-wider border-b border-rose-500/10 pb-1">Composição do Valor:</p>
+                 {metrics.investedItems.length === 0 ? (
+                   <p className="text-xs text-slate-500 italic">Nenhum produto cadastrado neste mês.</p>
+                 ) : (
+                   <div className="space-y-1.5">
+                     {metrics.investedItems.map((item, idx) => (
+                       <div key={idx} className="flex flex-col text-xs bg-slate-800/50 p-1.5 rounded-lg border border-slate-700/50">
+                          <span className="text-slate-200 font-bold truncate" title={item.name}>{item.name}</span>
+                          <span className="text-[10px] text-rose-300 mt-0.5">
+                            {item.totalStock} und x R$ {item.cost.toFixed(2)} = R$ {item.investedValue.toFixed(2)}
+                          </span>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+              </div>
+
+              <div className="mt-auto flex items-center text-[10px] text-rose-300/80 font-bold">
                 SAÍDA DE CAPITAL (MÊS)
               </div>
             </div>
