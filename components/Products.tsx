@@ -118,23 +118,40 @@ export const Products: React.FC<ProductsProps> = ({
       doc.setFontSize(14);
       doc.text('Itens em Estoque Atual', 14, 42);
 
+      let totalStockCostSum = 0;
+
       const stockData = products
         .filter(p => p.stock > 0)
-        .map(p => [
-          p.name,
-          p.category,
-          p.stock.toString(),
-          `R$ ${p.cost.toFixed(2)}`,
-          new Date(p.createdAt || Date.now()).toLocaleDateString('pt-BR')
-        ]);
+        .map(p => {
+          const totalCost = p.stock * p.cost;
+          totalStockCostSum += totalCost;
+          return [
+            p.name,
+            p.category,
+            p.stock.toString(),
+            `R$ ${p.cost.toFixed(2)}`,
+            `R$ ${totalCost.toFixed(2)}`,
+            new Date(p.createdAt || Date.now()).toLocaleDateString('pt-BR')
+          ];
+        });
+
+      if (stockData.length > 0) {
+        stockData.push(['TOTAL', '-', '-', '-', `R$ ${totalStockCostSum.toFixed(2)}`, '-']);
+      }
 
       autoTable(doc, {
         startY: 48,
-        head: [['Produto', 'Categoria', 'Qtd', 'Custo Uni.', 'Data de Registro']],
-        body: stockData.length > 0 ? stockData : [['Nenhum produto com estoque físico', '-', '-', '-', '-']],
+        head: [['Produto', 'Categoria', 'Qtd', 'Custo Uni.', 'Custo Total', 'Data de Registro']],
+        body: stockData.length > 0 ? stockData : [['Nenhum produto com estoque físico', '-', '-', '-', '-', '-']],
         theme: 'grid',
         headStyles: { fillColor: [16, 185, 129] }, // emerald-500
-        styles: { fontSize: 9 }
+        styles: { fontSize: 9 },
+        willDrawCell: function(data) {
+          if (data.row.index === stockData.length - 1 && stockData.length > 1) {
+             doc.setFont('', 'bold');
+             doc.setFillColor(240, 253, 244);
+          }
+        },
       });
 
       // 2. SOLD ITEMS
@@ -144,7 +161,9 @@ export const Products: React.FC<ProductsProps> = ({
       doc.text('Histórico de Vendas (Baixas de Estoque)', 14, finalY);
 
       // Flatten sales into individual item movements
-      const soldItems: Array<[string, string, string, string, string]> = [];
+      let totalSoldCostSum = 0;
+      let totalSoldRevenueSum = 0;
+      const soldItems: Array<[string, string, string, string, string, string, string]> = [];
       
       sales.forEach(sale => {
         sale.items.forEach(item => {
@@ -154,27 +173,51 @@ export const Products: React.FC<ProductsProps> = ({
            const saleDate = new Date(sale.date).toLocaleDateString('pt-BR');
            const regDate = prod ? new Date(prod.createdAt || Date.now()).toLocaleDateString('pt-BR') : 'N/A';
 
+           totalSoldCostSum += item.totalCost;
+           totalSoldRevenueSum += item.totalPrice;
+
            soldItems.push([
              item.productName,
              category,
              item.quantity.toString(),
              regDate,
-             saleDate
+             saleDate,
+             `R$ ${item.totalCost.toFixed(2)}`,
+             `R$ ${item.totalPrice.toFixed(2)}`
            ]);
         });
       });
 
-      // Sort sold items by sale date descending conceptually, though date is formatted. 
-      // It follows sale chronological order since 'sales' is usually ordered that way.
+      if (soldItems.length > 0) {
+        soldItems.push(['TOTAL', '-', '-', '-', '-', `R$ ${totalSoldCostSum.toFixed(2)}`, `R$ ${totalSoldRevenueSum.toFixed(2)}`]);
+      }
       
       autoTable(doc, {
         startY: finalY + 6,
-        head: [['Produto Vendido', 'Categoria', 'Qtd Vendida', 'Data Registro', 'Data da Baixa (Venda)']],
-        body: soldItems.length > 0 ? soldItems : [['Nenhuma venda registrada ainda', '-', '-', '-', '-']],
+        head: [['Produto Vendido', 'Categoria', 'Qtd Vendida', 'Data Registro', 'Data da Baixa', 'Custo Total', 'Venda Total']],
+        body: soldItems.length > 0 ? soldItems : [['Nenhuma venda registrada ainda', '-', '-', '-', '-', '-', '-']],
         theme: 'grid',
         headStyles: { fillColor: [59, 130, 246] }, // blue-500
-        styles: { fontSize: 9 }
+        styles: { fontSize: 9 },
+        willDrawCell: function(data) {
+          if (data.row.index === soldItems.length - 1 && soldItems.length > 1) {
+             doc.setFont('', 'bold');
+             doc.setFillColor(239, 246, 255);
+          }
+        },
       });
+
+      // 3. FINAL SUMMARY
+      let finaleY = (doc as any).lastAutoTable.finalY + 15;
+      doc.setFontSize(12);
+      doc.setFont('', 'bold');
+      doc.text(`Resumo Financeiro (Geral)`, 14, finaleY);
+      doc.setFontSize(10);
+      doc.setFont('', 'normal');
+      doc.text(`Valor de Custo dos Itens Vendidos: R$ ${totalSoldCostSum.toFixed(2)}`, 14, finaleY + 6);
+      doc.text(`Valor Total das Vendas (Faturamento): R$ ${totalSoldRevenueSum.toFixed(2)}`, 14, finaleY + 12);
+      const profit = totalSoldRevenueSum - totalSoldCostSum;
+      doc.text(`Lucro Líquido Parcial (Produtos Fisicos): R$ ${profit.toFixed(2)}`, 14, finaleY + 18);
 
       doc.save('relatorio_estoque_movimentacao.pdf');
       showToast('success', 'Relatório PDF gerado com sucesso!');
