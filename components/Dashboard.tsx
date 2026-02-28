@@ -441,100 +441,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
          </div>
       )}
 
-      {/* KPI Cards - 3D ANIMATED */}
+      {/* Simplified KPI Cards */}
       <div className="space-y-4">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Desempenho de Vendas (Mês)</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-          {/* Gross Revenue Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Resumo Financeiro</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Total Invested Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-7 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-              <DollarSign size={80} className="text-emerald-500" />
+              <Wallet size={70} className="text-rose-500" />
             </div>
             <div className="flex flex-col h-full">
-              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Faturamento Bruto</p>
-              <p className="text-[10px] text-slate-500 mb-2 font-medium">Valor total das vendas deste mês</p>
-              <h3 className="text-2xl md:text-3xl font-black text-emerald-400 drop-shadow-sm">
-                R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-              </h3>
-              <div className="mt-auto pt-4 flex items-center text-[10px] text-emerald-300 font-bold bg-emerald-500/10 w-fit px-2 py-1 rounded border border-emerald-500/20">
-                TOTAL VENDIDO
-              </div>
-            </div>
-          </div>
-
-          {/* Total Cost Card (Gastos) */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
-            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-              <Wallet size={80} className="text-rose-500" />
-            </div>
-            <div className="flex flex-col h-full">
-              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Custo das Vendas (Gastos)</p>
-              <p className="text-[10px] text-slate-500 mb-2 font-medium">Quanto você pagou pelos produtos vendidos</p>
-              <h3 className="text-2xl md:text-3xl font-black text-rose-400 drop-shadow-sm">
+              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total Investido</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">Quanto você pagou em produtos vendidos</p>
+              <h3 className="text-3xl font-black text-rose-400 drop-shadow-sm">
                 R$ {metrics.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              <div className="mt-auto pt-4 flex items-center text-[10px] text-rose-300 font-bold bg-rose-500/10 w-fit px-2 py-1 rounded border border-rose-500/20">
-                GASTO COM MERCADORIA
+              <div className="mt-auto pt-5 flex items-center text-[10px] text-rose-300/80 font-bold">
+                SAÍDA DE CAPITAL (MÊS)
               </div>
             </div>
           </div>
 
-          {/* Net Profit Card (Ganho) */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-500/10">
+          {/* Total Sold Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-7 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-              <TrendingUp size={80} className="text-cyan-500" />
+              <DollarSign size={70} className="text-emerald-500" />
             </div>
             <div className="flex flex-col h-full">
-              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Lucro Líquido (Ganho)</p>
-              <p className="text-[10px] text-slate-500 mb-2 font-medium">O seu ganho real após pagar os custos</p>
-              <h3 className={`text-2xl md:text-3xl font-black drop-shadow-sm ${metrics.netProfit >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
-                R$ {metrics.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total Vendido</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">Faturamento bruto das vendas deste mês</p>
+              <h3 className="text-3xl font-black text-emerald-400 drop-shadow-sm">
+                R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              <div className="mt-auto pt-4 flex items-center text-[10px] text-cyan-300 font-bold">
-                MARGEM DE {metrics.margin.toFixed(1)}%
+              <div className="mt-auto pt-5 flex items-center text-[10px] text-emerald-300/80 font-bold">
+                VALOR BRUTO (MÊS)
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="space-y-4">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Fluxo de Caixa e Estoque</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Received Month Card (Real Flow) */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-emerald-500/10">
-            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">Entradas em Caixa</p>
-            <h3 className="text-xl font-black text-emerald-400">
-              R$ {metrics.receivedMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </h3>
-            <p className="text-[9px] text-slate-500 mt-1">Total recebido este mês</p>
-          </div>
-
-          {/* Pending Month Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-amber-500/10">
-            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">A Receber (Mês)</p>
-            <h3 className="text-xl font-black text-amber-400">
-              R$ {metrics.pendingMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </h3>
-            <p className="text-[9px] text-slate-500 mt-1">Parcelas pendentes do mês</p>
-          </div>
-
-          {/* Total Overall Pending Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-rose-500/10">
-            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">Devedor Total</p>
-            <h3 className="text-xl font-black text-rose-400">
-              R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </h3>
-            <p className="text-[9px] text-slate-500 mt-1">Dívida acumulada de clientes</p>
-          </div>
-
-          {/* Stock Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-blue-500/10">
-            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">Valor em Estoque</p>
-            <h3 className="text-xl font-black text-blue-400">
-              R$ {totalStockCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-            </h3>
-            <p className="text-[9px] text-slate-500 mt-1">Valor atual em mercadoria</p>
+          {/* Total Pending Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-7 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-amber-500/10">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+              <Clock size={70} className="text-amber-500" />
+            </div>
+            <div className="flex flex-col h-full">
+              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total a Receber</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">O que você tem pendente com clientes</p>
+              <h3 className="text-3xl font-black text-amber-400 drop-shadow-sm">
+                R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <div className="mt-auto pt-5 flex items-center text-[10px] text-amber-300/80 font-bold uppercase">
+                PENDENTE (Geral)
+              </div>
+            </div>
           </div>
         </div>
       </div>
