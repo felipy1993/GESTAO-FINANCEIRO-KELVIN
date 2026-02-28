@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   Plus, Search, CheckCircle, Clock, ShoppingCart, AlertCircle, 
   Calendar, Filter, X, ChevronDown, ChevronUp, DollarSign, 
@@ -640,6 +642,101 @@ export const Sales: React.FC<SalesProps> = ({
     showToast('success', 'Plano atualizado!');
   };
 
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF('landscape');
+      
+      doc.setFontSize(20);
+      doc.text('Relatório Financeiro de Vendas', 14, 22);
+      
+      doc.setFontSize(11);
+      doc.text(`Filtro atual: ${statusTab === 'ALL' ? 'Todas' : statusTab === 'PENDING' ? 'Pendentes' : statusTab === 'OVERDUE' ? 'Atrasadas' : 'Pagas'} | Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`, 14, 30);
+
+      let totalCostSum = 0;
+      let totalRevenueSum = 0;
+      let totalRemainingSum = 0;
+      let totalPaidSum = 0;
+
+      const tableData = filteredSales.map(sale => {
+        let paidAmount = 0;
+        let totalInstallments = sale.installments || 1;
+        let paidCount = 0;
+        let remainingCount = 0;
+
+        if (sale.customInstallments && sale.customInstallments.length > 0) {
+          totalInstallments = sale.customInstallments.length;
+          sale.customInstallments.forEach(inst => {
+            if (inst.status === PaymentStatus.PAID) {
+              paidAmount += inst.value;
+              paidCount++;
+            } else {
+              remainingCount++;
+            }
+          });
+          paidAmount += (sale.downPayment || 0);
+        } else {
+           paidCount = sale.paidInstallments || 0;
+           remainingCount = totalInstallments - paidCount;
+           const instValue = (sale.totalPrice - (sale.downPayment || 0)) / totalInstallments;
+           paidAmount = (sale.downPayment || 0) + (instValue * paidCount);
+        }
+
+        const remainingValue = sale.totalPrice - paidAmount;
+
+        totalCostSum += sale.totalCost;
+        totalRevenueSum += sale.totalPrice;
+        totalRemainingSum += remainingValue;
+        totalPaidSum += paidAmount;
+
+        const customer = sale.customerName || 'Cliente Balcão';
+        const date = new Date(sale.date).toLocaleDateString('pt-BR');
+        
+        return [
+          date,
+          customer,
+          `R$ ${sale.totalCost.toFixed(2)}`,
+          `R$ ${sale.totalPrice.toFixed(2)}`,
+          `${totalInstallments}x`,
+          `${remainingCount}x (R$ ${remainingValue.toFixed(2)})`,
+          `R$ ${paidAmount.toFixed(2)}`
+        ];
+      });
+
+      if (tableData.length > 0) {
+        tableData.push([
+          'TOTAL GERAL',
+          '-',
+          `R$ ${totalCostSum.toFixed(2)}`,
+          `R$ ${totalRevenueSum.toFixed(2)}`,
+          '-',
+          `R$ ${totalRemainingSum.toFixed(2)}`,
+          `R$ ${totalPaidSum.toFixed(2)}`
+        ]);
+      }
+
+      autoTable(doc, {
+        startY: 38,
+        head: [['Data', 'Cliente', 'Custo Total', 'Venda Total', 'Qtd. Parcelas', 'Falta Pagar', 'Valor Recebido']],
+        body: tableData.length > 0 ? tableData : [['Nenhum dado encontrado', '-', '-', '-', '-', '-', '-']],
+        theme: 'grid',
+        headStyles: { fillColor: [16, 185, 129] }, // emerald-500
+        styles: { fontSize: 9 },
+        willDrawCell: function(data) {
+          if (data.row.index === tableData.length - 1 && tableData.length > 1) {
+             doc.setFont('', 'bold');
+             doc.setFillColor(240, 253, 244);
+          }
+        },
+      });
+
+      doc.save('relatorio_vendas.pdf');
+      showToast('success', 'Relatório PDF gerado com sucesso!');
+    } catch (e) {
+      console.error(e);
+      showToast('error', 'Erro ao gerar o PDF.');
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-20">
       
@@ -650,12 +747,20 @@ export const Sales: React.FC<SalesProps> = ({
             <h2 className="text-3xl font-bold text-slate-100 drop-shadow-md">Gerenciamento de Vendas</h2>
             <p className="text-slate-400">Controle financeiro e cobranças</p>
           </div>
-          <button 
-            onClick={() => { setActiveTab('SALE'); setIsModalOpen(true); }}
-            className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-2xl flex items-center gap-2 shadow-[0_10px_20px_-5px_rgba(16,185,129,0.4)] font-bold transition-transform hover:scale-105 active:scale-95 border-t border-emerald-400"
-          >
-            <Plus size={20} /> Nova Venda
-          </button>
+          <div className="flex gap-3 w-full md:w-auto">
+             <button 
+                onClick={handleExportPDF}
+                className="bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg font-bold transition-transform hover:scale-105 active:scale-95 border border-slate-700 whitespace-nowrap"
+             >
+                <FileText size={20} className="text-blue-400" /> <span className="hidden md:inline">Exportar PDF</span>
+             </button>
+             <button 
+               onClick={() => { setActiveTab('SALE'); setIsModalOpen(true); }}
+               className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-3 rounded-2xl flex items-center gap-2 shadow-[0_10px_20px_-5px_rgba(16,185,129,0.4)] font-bold transition-transform hover:scale-105 active:scale-95 border-t border-emerald-400 whitespace-nowrap"
+             >
+               <Plus size={20} /> <span className="hidden md:inline">Nova Venda</span>
+             </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
