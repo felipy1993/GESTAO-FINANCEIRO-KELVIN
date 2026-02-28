@@ -258,9 +258,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
     // USER REQUEST: Invested Amount (based on product entry date)
     const totalInvested = products.reduce((acc, p) => {
-      const createdDate = new Date(p.createdAt || 0);
+      const createdDate = new Date(p.createdAt || Date.now());
       if (createdDate.getMonth() === selectedMonth && createdDate.getFullYear() === selectedYear) {
-        return acc + (p.cost * (p.initialStock || p.stock));
+        const soldCount = sales.reduce((sum, s) => {
+          const item = s.items.find(i => i.productId === p.id);
+          return sum + (item ? item.quantity : 0);
+        }, 0);
+        return acc + (p.cost * (p.stock + soldCount));
       }
       return acc;
     }, 0);
@@ -441,21 +445,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
               <h3 className="text-3xl font-black text-rose-400 drop-shadow-sm">
                 R$ {metrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              <div className="mt-auto pt-5 flex flex-col gap-1 text-[10px] text-rose-300/80 font-bold">
-                <span>SAÍDA DE CAPITAL (MÊS)</span>
-                {/* DEBUG LIST FOR KELVIN */}
-                <div className="text-[8px] opacity-70 mt-2 bg-black/20 p-2 rounded max-h-24 overflow-y-auto">
-                  <span className="text-white/50 block mb-1">PRODUTOS SOMADOS NESTE MÊS:</span>
-                  {products.filter(p => {
-                      const d = new Date(p.createdAt || 0);
-                      return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
-                  }).map(p => (
-                      <div key={p.id} className="flex justify-between border-b border-white/5 pb-1 mb-1">
-                        <span className="truncate w-3/4">{p.name} ({p.initialStock || p.stock} un. x R${p.cost})</span>
-                        <span>R$ {(p.cost * (p.initialStock || p.stock)).toFixed(2)}</span>
-                      </div>
-                  ))}
-                </div>
+              <div className="mt-auto pt-5 flex items-center text-[10px] text-rose-300/80 font-bold">
+                SAÍDA DE CAPITAL (MÊS)
               </div>
             </div>
           </div>
