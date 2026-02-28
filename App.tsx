@@ -136,11 +136,12 @@ function App() {
     showToast('info', 'Cliente removido.');
   }
 
-  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt'>) => {
+  const addProduct = async (productData: Omit<Product, 'id'>) => {
     const newProduct: Product = { 
       ...productData, 
       id: crypto.randomUUID(),
-      createdAt: Date.now()
+      initialStock: productData.initialStock || productData.stock,
+      createdAt: productData.createdAt || Date.now()
     };
     firestoreService.saveItem('products', newProduct.id, newProduct);
     showToast('success', 'Produto adicionado!');

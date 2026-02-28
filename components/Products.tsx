@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Edit2, Search, Package, X, AlertTriangle, Layers } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, Package, X, AlertTriangle, Layers, Calendar } from 'lucide-react';
 import { Product } from '../types';
 import { CATEGORIES } from '../constants';
 
@@ -30,7 +30,8 @@ export const Products: React.FC<ProductsProps> = ({
     category: CATEGORIES[0],
     cost: '',
     price: '',
-    stock: ''
+    stock: '',
+    date: new Date().toISOString().split('T')[0]
   });
 
   const filteredProducts = useMemo(() => {
@@ -47,14 +48,22 @@ export const Products: React.FC<ProductsProps> = ({
       category: product.category,
       cost: product.cost.toString(),
       price: product.price.toString(),
-      stock: product.stock.toString()
+      stock: product.stock.toString(),
+      date: new Date(product.createdAt || Date.now()).toISOString().split('T')[0]
     });
     setIsModalOpen(true);
   };
 
   const handleAddNew = () => {
     setEditingId(null);
-    setFormData({ name: '', category: CATEGORIES[0], cost: '', price: '', stock: '0' });
+    setFormData({ 
+      name: '', 
+      category: CATEGORIES[0], 
+      cost: '', 
+      price: '', 
+      stock: '0',
+      date: new Date().toISOString().split('T')[0]
+    });
     setIsModalOpen(true);
   };
 
@@ -66,7 +75,9 @@ export const Products: React.FC<ProductsProps> = ({
       category: formData.category,
       cost: Number(formData.cost),
       price: Number(formData.price),
-      stock: Number(formData.stock)
+      stock: Number(formData.stock),
+      initialStock: Number(formData.stock),
+      createdAt: new Date(formData.date + 'T12:00:00').getTime()
     };
 
     if (editingId) {
@@ -277,16 +288,27 @@ export const Products: React.FC<ProductsProps> = ({
                 </div>
               </div>
               
-              {/* Stock Input */}
-              <div>
-                <label className="block text-sm text-slate-400 mb-1">Quantidade em Estoque</label>
-                <input 
-                  required type="number" step="1"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-emerald-500 focus:outline-none shadow-inner"
-                  value={formData.stock}
-                  onChange={e => setFormData({...formData, stock: e.target.value})}
-                  placeholder="0"
-                />
+              {/* Stock and Date Input */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Qtd Estoque</label>
+                  <input 
+                    required type="number" step="1"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-emerald-500 focus:outline-none shadow-inner text-sm"
+                    value={formData.stock}
+                    onChange={e => setFormData({...formData, stock: e.target.value})}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Data de Compra</label>
+                  <input 
+                    required type="date"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:border-emerald-500 focus:outline-none shadow-inner text-sm"
+                    value={formData.date}
+                    onChange={e => setFormData({...formData, date: e.target.value})}
+                  />
+                </div>
               </div>
 
               <div className="pt-6 flex gap-3">

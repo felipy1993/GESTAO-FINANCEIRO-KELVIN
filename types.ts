@@ -19,6 +19,7 @@ export interface Product {
   cost: number;
   price: number;
   stock: number;
+  initialStock: number;
   createdAt: number;
 }
 

@@ -260,7 +260,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     const totalInvested = products.reduce((acc, p) => {
       const createdDate = new Date(p.createdAt || 0);
       if (createdDate.getMonth() === selectedMonth && createdDate.getFullYear() === selectedYear) {
-        return acc + (p.cost * p.stock);
+        return acc + (p.cost * (p.initialStock || p.stock));
       }
       return acc;
     }, 0);
