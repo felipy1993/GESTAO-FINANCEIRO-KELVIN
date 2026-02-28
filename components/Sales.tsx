@@ -308,8 +308,19 @@ export const Sales: React.FC<SalesProps> = ({
   const [statusTab, setStatusTab] = useState<'ALL' | 'PENDING' | 'OVERDUE' | 'PAID'>('ALL'); // For Filter
 
   // Filters State
+  const currentMonthStart = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  }, []);
+  const currentMonthEnd = useMemo(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
-  
+  const [startDate, setStartDate] = useState<string>(currentMonthStart);
+  const [endDate, setEndDate] = useState<string>(currentMonthEnd);
+
   // Date Edit State
   const [dateEditSale, setDateEditSale] = useState<Sale | null>(null);
   const [newDueDate, setNewDueDate] = useState('');
@@ -437,33 +448,20 @@ export const Sales: React.FC<SalesProps> = ({
 
   // --- Calculations & Filtering ---
 
-  const summary = useMemo(() => {
-    const today = new Date().setHours(0,0,0,0);
-    const salesToday = sales.filter(s => new Date(s.date).setHours(0,0,0,0) === today);
-    const revenueToday = salesToday.reduce((acc, s) => acc + s.totalPrice, 0);
-
-    const pendingSales = sales.filter(s => s.status === PaymentStatus.PENDING);
-    let totalPending = 0;
-    let totalOverdue = 0;
-
-    pendingSales.forEach(s => {
-       const paidAmount = (s.downPayment || 0) + ((s.totalPrice - (s.downPayment || 0)) / s.installments) * s.paidInstallments;
-       const remaining = s.totalPrice - paidAmount;
-       totalPending += remaining;
-
-       const status = getDueStatus(s);
-       if (status?.isOverdue) {
-         // Rough estimate of overdue amount (just the next installment or full remaining? let's do next installment)
-         const installValue = (s.totalPrice - (s.downPayment || 0)) / s.installments;
-         totalOverdue += installValue;
-       }
-    });
-
-    return { revenueToday, totalPending, totalOverdue, countToday: salesToday.length };
-  }, [sales]);
-
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
+      // Date Filter
+      if (startDate) {
+        // Set to beginning of the day in local time
+        const start = new Date(startDate + 'T00:00:00').getTime();
+        if (s.date < start) return false;
+      }
+      if (endDate) {
+        // Set to end of the day in local time
+        const end = new Date(endDate + 'T23:59:59').getTime();
+        if (s.date > end) return false;
+      }
+
       // Search Filter
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = 
@@ -483,7 +481,48 @@ export const Sales: React.FC<SalesProps> = ({
 
       return true;
     }).sort((a, b) => b.date - a.date);
-  }, [sales, searchTerm, statusTab]);
+  }, [sales, searchTerm, statusTab, startDate, endDate]);
+
+  const summary = useMemo(() => {
+    const revenuePeriod = filteredSales.reduce((acc, s) => acc + s.totalPrice, 0);
+
+    const receivedPeriod = filteredSales.reduce((acc, s) => {
+      let amount = 0;
+      amount += (s.downPayment || 0);
+
+      if (s.customInstallments && s.customInstallments.length > 0) {
+        s.customInstallments.forEach(inst => {
+           if (inst.status === PaymentStatus.PAID) {
+              amount += inst.value;
+           }
+        });
+      } else if (s.status === PaymentStatus.PAID) {
+        amount += (s.totalPrice - (s.downPayment || 0));
+      } else {
+         const installValue = (s.totalPrice - (s.downPayment || 0)) / (s.installments||1);
+         amount += installValue * (s.paidInstallments || 0);
+      }
+      return acc + amount;
+    }, 0);
+
+    const pendingSales = filteredSales.filter(s => s.status === PaymentStatus.PENDING);
+    let totalPending = 0;
+    let totalOverdue = 0;
+
+    pendingSales.forEach(s => {
+       const paidAmount = (s.downPayment || 0) + ((s.totalPrice - (s.downPayment || 0)) / (s.installments||1)) * s.paidInstallments;
+       const remaining = s.totalPrice - paidAmount;
+       totalPending += remaining;
+
+       const status = getDueStatus(s);
+       if (status?.isOverdue) {
+         const installValue = (s.totalPrice - (s.downPayment || 0)) / (s.installments||1);
+         totalOverdue += installValue;
+       }
+    });
+
+    return { revenuePeriod, receivedPeriod, totalPending, totalOverdue, countPeriod: filteredSales.length };
+  }, [filteredSales]);
 
   const cartTotals = useMemo(() => {
     if (activeTab === 'COMMISSION') {
@@ -763,21 +802,27 @@ export const Sales: React.FC<SalesProps> = ({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <SummaryCard 
-            title="Vendas Hoje" 
-            value={`R$ ${summary.revenueToday.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-            subtext={`${summary.countToday} transações`}
+            title="Vendas do Período" 
+            value={`R$ ${summary.revenuePeriod.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            subtext={`${summary.countPeriod} transações listadas`}
             icon={TrendingUp} colorClass="text-emerald-400" bgClass="bg-emerald-500/10" shadowColor="hover:shadow-emerald-500/10"
           />
           <SummaryCard 
-            title="A Receber (Total)" 
+            title="Valor Recebido" 
+            value={`R$ ${summary.receivedPeriod.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            subtext="Dinheiro no bolso referente à lista"
+            icon={DollarSign} colorClass="text-purple-400" bgClass="bg-purple-500/10" shadowColor="hover:shadow-purple-500/10"
+          />
+          <SummaryCard 
+            title="A Receber (Desta Lista)" 
             value={`R$ ${summary.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             subtext="Valores pendentes futuros"
             icon={Wallet} colorClass="text-blue-400" bgClass="bg-blue-500/10" shadowColor="hover:shadow-blue-500/10"
           />
           <SummaryCard 
-            title="Em Atraso" 
+            title="Em Atraso (Desta Lista)" 
             value={`R$ ${summary.totalOverdue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
             subtext="Parcelas vencidas"
             icon={AlertTriangle} colorClass="text-rose-400" bgClass="bg-rose-500/10" shadowColor="hover:shadow-rose-500/10"
@@ -786,8 +831,8 @@ export const Sales: React.FC<SalesProps> = ({
       </div>
 
       {/* 2. Status Tabs & Search */}
-      <div className="bg-slate-900/40 p-2 rounded-2xl border border-slate-800 flex flex-col md:flex-row gap-4 items-center shadow-lg backdrop-blur-sm">
-         <div className="flex bg-slate-950 p-1.5 rounded-xl w-full md:w-auto overflow-x-auto shadow-inner border border-slate-800">
+      <div className="bg-slate-900/40 p-2 rounded-2xl border border-slate-800 flex flex-col items-center gap-4 shadow-lg backdrop-blur-sm lg:flex-row">
+         <div className="flex bg-slate-950 p-1.5 rounded-xl w-full lg:w-auto overflow-x-auto shadow-inner border border-slate-800 shrink-0">
             {(['ALL', 'PENDING', 'OVERDUE', 'PAID'] as const).map(tab => (
               <button
                 key={tab}
@@ -804,6 +849,21 @@ export const Sales: React.FC<SalesProps> = ({
                 {tab === 'PAID' && 'Pagas'}
               </button>
             ))}
+         </div>
+         <div className="flex gap-2 w-full lg:w-auto shrink-0 flex-col md:flex-row">
+            <input 
+              type="date" 
+              value={startDate} 
+              onChange={e => setStartDate(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none w-full appearance-none"
+            />
+            <span className="text-slate-500 self-center hidden md:inline font-medium">até</span>
+            <input 
+              type="date" 
+              value={endDate} 
+              onChange={e => setEndDate(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-100 focus:border-emerald-500 focus:outline-none w-full appearance-none"
+            />
          </div>
          <div className="relative flex-1 w-full group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-emerald-500 transition-colors" size={18} />
