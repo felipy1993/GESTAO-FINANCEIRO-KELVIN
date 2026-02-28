@@ -86,21 +86,13 @@ function App() {
 
     // Real-time Subscriptions
     const unsubCustomers = firestoreService.subscribeToData('customers', (data) => setCustomers(data));
-    const unsubProducts = firestoreService.subscribeToData('products', (data) => {
-      if (data.length === 0) {
-        firestoreService.bulkSave('products', MOCK_PRODUCTS);
-      } else {
-        setProducts(data);
-      }
-    });
-    const unsubSales = firestoreService.subscribeToData('sales', (data) => {
-      setSales(data.map(s => ({
-        ...s,
-        type: s.type || 'SALE',
-        paidInstallments: s.paidInstallments ?? (s.status === PaymentStatus.PAID ? s.installments : 0),
-        downPayment: s.downPayment ?? 0
-      })));
-    });
+    const unsubProducts = firestoreService.subscribeToData('products', data => setProducts(data));
+    const unsubSales = firestoreService.subscribeToData('sales', data => setSales(data.map(s => ({
+      ...s,
+      type: s.type || 'SALE',
+      paidInstallments: s.paidInstallments ?? (s.status === PaymentStatus.PAID ? s.installments : 0),
+      downPayment: s.downPayment ?? 0
+    }))));
     const unsubApts = firestoreService.subscribeToData('appointments', (data) => setAppointments(data));
 
     return () => {
@@ -110,6 +102,47 @@ function App() {
       unsubApts();
     };
   }, [user]);
+
+  // -- Data Migration Effect --
+  useEffect(() => {
+    if (!user || products.length === 0) return;
+
+    const runMigration = async () => {
+      // Find products needing repair: either missing data or initialStock is impossible (less than current + sold)
+      const needsUpdate = products.filter(p => {
+        const soldCount = sales.reduce((sum, s) => {
+          const item = s.items.find(i => i.productId === p.id);
+          return sum + (item ? item.quantity : 0);
+        }, 0);
+
+        const isMissingData = !p.createdAt || p.initialStock === undefined;
+        const isInitialStockWrong = p.initialStock !== undefined && p.initialStock < (p.stock + soldCount);
+        
+        return isMissingData || isInitialStockWrong;
+      });
+
+      if (needsUpdate.length === 0) return;
+
+      const updates = needsUpdate.map(p => {
+        const soldCount = sales.reduce((sum, s) => {
+          const item = s.items.find(i => i.productId === p.id);
+          return sum + (item ? item.quantity : 0);
+        }, 0);
+
+        return {
+          ...p,
+          createdAt: p.createdAt || Date.now(),
+          initialStock: p.stock + soldCount
+        };
+      });
+
+      if (updates.length > 0) {
+        await firestoreService.bulkSave('products', updates);
+      }
+    };
+
+    runMigration();
+  }, [user, products, sales]); // Watch full arrays to ensure we catch changes
 
   // -- Actions (Instantly update UI via Real-time Listeners) --
   
