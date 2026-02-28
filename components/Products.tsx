@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Edit2, Search, Package, X, AlertTriangle, Layers, Calendar, Wallet } from 'lucide-react';
-import { Product } from '../types';
+import { Plus, Trash2, Edit2, Search, Package, X, AlertTriangle, Layers, Calendar, Wallet, FileText } from 'lucide-react';
+import { Product, Sale } from '../types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { CATEGORIES } from '../constants';
 
 interface ProductsProps {
@@ -10,6 +12,7 @@ interface ProductsProps {
   onDeleteProduct: (id: string) => void;
   onSellProduct: (product: Product) => void;
   showToast: (type: 'success' | 'error' | 'info', message: string) => void;
+  sales?: Sale[];
 }
 
 export const Products: React.FC<ProductsProps> = ({ 
@@ -18,7 +21,8 @@ export const Products: React.FC<ProductsProps> = ({
   onUpdateProduct, 
   onDeleteProduct, 
   onSellProduct,
-  showToast 
+  showToast,
+  sales = []
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -100,6 +104,86 @@ export const Products: React.FC<ProductsProps> = ({
     }
   };
 
+  const handleExportPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      doc.setFontSize(20);
+      doc.text('Relatório de Estoque e Movimentação', 14, 22);
+      
+      doc.setFontSize(11);
+      doc.text(`Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}`, 14, 30);
+
+      // 1. ITEMS IN STOCK
+      doc.setFontSize(14);
+      doc.text('Itens em Estoque Atual', 14, 42);
+
+      const stockData = products
+        .filter(p => p.stock > 0)
+        .map(p => [
+          p.name,
+          p.category,
+          p.stock.toString(),
+          `R$ ${p.cost.toFixed(2)}`,
+          new Date(p.createdAt || Date.now()).toLocaleDateString('pt-BR')
+        ]);
+
+      autoTable(doc, {
+        startY: 48,
+        head: [['Produto', 'Categoria', 'Qtd', 'Custo Uni.', 'Data de Registro']],
+        body: stockData.length > 0 ? stockData : [['Nenhum produto com estoque físico', '-', '-', '-', '-']],
+        theme: 'grid',
+        headStyles: { fillColor: [16, 185, 129] }, // emerald-500
+        styles: { fontSize: 9 }
+      });
+
+      // 2. SOLD ITEMS
+      let finalY = (doc as any).lastAutoTable.finalY + 15;
+      
+      doc.setFontSize(14);
+      doc.text('Histórico de Vendas (Baixas de Estoque)', 14, finalY);
+
+      // Flatten sales into individual item movements
+      const soldItems: Array<[string, string, string, string, string]> = [];
+      
+      sales.forEach(sale => {
+        sale.items.forEach(item => {
+           // Find category from product DB if possible
+           const prod = products.find(p => p.id === item.productId);
+           const category = prod ? prod.category : 'N/A';
+           const saleDate = new Date(sale.date).toLocaleDateString('pt-BR');
+           const regDate = prod ? new Date(prod.createdAt || Date.now()).toLocaleDateString('pt-BR') : 'N/A';
+
+           soldItems.push([
+             item.productName,
+             category,
+             item.quantity.toString(),
+             regDate,
+             saleDate
+           ]);
+        });
+      });
+
+      // Sort sold items by sale date descending conceptually, though date is formatted. 
+      // It follows sale chronological order since 'sales' is usually ordered that way.
+      
+      autoTable(doc, {
+        startY: finalY + 6,
+        head: [['Produto Vendido', 'Categoria', 'Qtd Vendida', 'Data Registro', 'Data da Baixa (Venda)']],
+        body: soldItems.length > 0 ? soldItems : [['Nenhuma venda registrada ainda', '-', '-', '-', '-']],
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] }, // blue-500
+        styles: { fontSize: 9 }
+      });
+
+      doc.save('relatorio_estoque_movimentacao.pdf');
+      showToast('success', 'Relatório PDF gerado com sucesso!');
+    } catch (e) {
+      console.error(e);
+      showToast('error', 'Erro ao gerar o PDF.');
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -119,6 +203,14 @@ export const Products: React.FC<ProductsProps> = ({
               className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20 transition-all shadow-inner"
             />
           </div>
+          <button 
+            onClick={handleExportPDF}
+            className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-lg font-medium whitespace-nowrap active:scale-95 transition-transform border border-slate-700"
+          >
+            <FileText size={20} className="text-blue-400" />
+            <span className="hidden md:inline">Exportar PDF</span>
+          </button>
+          
           <button 
             onClick={handleAddNew}
             className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-[0_10px_20px_-5px_rgba(16,185,129,0.4)] font-medium whitespace-nowrap active:scale-95 transition-transform border-t border-emerald-400"

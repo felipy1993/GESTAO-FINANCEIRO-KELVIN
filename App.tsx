@@ -402,6 +402,7 @@ function App() {
         return (
           <Products 
             products={products} 
+            sales={sales}
             onAddProduct={addProduct} 
             onUpdateProduct={updateProduct}
             onDeleteProduct={deleteProduct} 
