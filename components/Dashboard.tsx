@@ -459,17 +459,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
                 R$ {metrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
               
-              <div className="bg-slate-900/80 p-3 rounded-xl border border-rose-500/20 max-h-32 overflow-y-auto custom-scrollbar mb-4">
-                 <p className="text-[9px] text-slate-400 font-bold mb-2 uppercase tracking-wider border-b border-rose-500/10 pb-1">Composição do Valor:</p>
+              <div className="max-h-24 overflow-y-auto custom-scrollbar mb-4 mt-2 pr-1">
+                 <p className="text-[9px] text-slate-500 font-bold mb-1.5 uppercase tracking-wider">Composição do Valor:</p>
                  {metrics.investedItems.length === 0 ? (
-                   <p className="text-xs text-slate-500 italic">Nenhum produto cadastrado neste mês.</p>
+                   <p className="text-[10px] text-slate-600 italic">Nenhum produto cadastrado neste mês.</p>
                  ) : (
-                   <div className="space-y-1.5">
+                   <div className="space-y-1.5 border-l-2 border-slate-700/30 pl-2">
                      {metrics.investedItems.map((item, idx) => (
-                       <div key={idx} className="flex flex-col text-xs bg-slate-800/50 p-1.5 rounded-lg border border-slate-700/50">
-                          <span className="text-slate-200 font-bold truncate" title={item.name}>{item.name}</span>
-                          <span className="text-[10px] text-rose-300 mt-0.5">
-                            {item.totalStock} und x R$ {item.cost.toFixed(2)} = R$ {item.investedValue.toFixed(2)}
+                       <div key={idx} className="flex justify-between items-center text-[10px] group-hover:text-slate-300 transition-colors">
+                          <span className="text-slate-400 truncate max-w-[120px]" title={item.name}>
+                            {item.name} <span className="opacity-50">({item.totalStock}x)</span>
+                          </span>
+                          <span className="text-slate-500 font-medium group-hover:text-rose-400/70 transition-colors">
+                            R$ {item.investedValue.toFixed(2)}
                           </span>
                        </div>
                      ))}
@@ -477,7 +479,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
                  )}
               </div>
 
-              <div className="mt-auto flex items-center text-[10px] text-rose-300/80 font-bold">
+              <div className="mt-auto flex items-center text-[10px] text-rose-300/80 font-bold px-1">
                 SAÍDA DE CAPITAL (MÊS)
               </div>
             </div>
