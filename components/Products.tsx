@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, Trash2, Edit2, Search, Package, X, AlertTriangle, Layers, Calendar } from 'lucide-react';
+import { Plus, Trash2, Edit2, Search, Package, X, AlertTriangle, Layers, Calendar, Wallet } from 'lucide-react';
 import { Product } from '../types';
 import { CATEGORIES } from '../constants';
 
@@ -40,6 +40,10 @@ export const Products: React.FC<ProductsProps> = ({
       p.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [products, searchTerm]);
+
+  const totalStockValue = useMemo(() => {
+    return products.reduce((acc, p) => acc + (p.cost * p.stock), 0);
+  }, [products]);
 
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
@@ -122,6 +126,24 @@ export const Products: React.FC<ProductsProps> = ({
             <Plus size={20} />
             <span className="hidden md:inline">Adicionar</span>
           </button>
+        </div>
+      </div>
+
+      {/* Stock Total Value Card */}
+      <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 p-6 rounded-2xl shadow-xl flex items-center gap-6 relative overflow-hidden group">
+        <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+          <Wallet size={120} className="text-emerald-500" />
+        </div>
+        
+        <div className="w-16 h-16 rounded-2xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-inner z-10">
+          <Wallet size={32} className="text-emerald-400" />
+        </div>
+        <div className="z-10">
+          <p className="text-slate-400 text-sm font-bold tracking-widest uppercase mb-1 drop-shadow-sm">Valor em Estoque (Custo)</p>
+          <h3 className="text-4xl font-black text-emerald-400 drop-shadow-md tracking-tight">
+            R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Soma de todos os produtos físicos disponíveis</p>
         </div>
       </div>
 
