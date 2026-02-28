@@ -3,7 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download, CheckCircle, Clock, Package } from 'lucide-react';
+import { TrendingUp, DollarSign, Wallet, AlertTriangle, Calendar, User, FileDown, Download, CheckCircle, Clock, Package, Info, X } from 'lucide-react';
 import { Sale, Product, PaymentStatus } from '../types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -17,6 +17,17 @@ interface DashboardProps {
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1'];
 
 export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast }) => {
+
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [showInfoModal, setShowInfoModal] = useState(false);
+
+  const filteredSales = useMemo(() => {
+    return sales.filter(sale => {
+      const saleDate = new Date(sale.date);
+      return saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear;
+    });
+  }, [sales, selectedMonth, selectedYear]);
 
   // --- Export Functions ---
   const exportToPDF = () => {
@@ -117,16 +128,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     }
   };
   
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-
-  const filteredSales = useMemo(() => {
-    return sales.filter(sale => {
-      const saleDate = new Date(sale.date);
-      return saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear;
-    });
-  }, [sales, selectedMonth, selectedYear]);
-
   const months = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
@@ -340,9 +341,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       {/* Header & Filters */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
         <div className="flex flex-col md:flex-row md:items-center gap-6 w-full xl:w-auto">
-          <div>
-            <h2 className="text-3xl font-bold text-slate-100 drop-shadow-lg">Painel de Controle</h2>
-            <p className="text-slate-400">Desempenho de {months[selectedMonth]} de {selectedYear}</p>
+          <div className="flex items-center gap-3">
+            <div>
+              <h2 className="text-3xl font-bold text-slate-100 drop-shadow-lg">Painel de Controle</h2>
+              <p className="text-slate-400">Desempenho de {months[selectedMonth]} de {selectedYear}</p>
+            </div>
+            <button 
+              onClick={() => setShowInfoModal(true)}
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 rounded-full transition-all border border-slate-700 shadow-lg active:scale-95 group relative mb-auto mt-1"
+              title="Entenda os cálculos"
+            >
+              <Info size={18} />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
+            </button>
           </div>
           
           <div className="flex items-center gap-3 bg-slate-900/50 p-1.5 rounded-2xl border border-slate-800 backdrop-blur-sm self-start">
@@ -431,72 +442,99 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       )}
 
       {/* KPI Cards - 3D ANIMATED */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
-        {/* Received Month Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
-          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <CheckCircle size={80} className="text-emerald-500" />
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Desempenho de Vendas (Mês)</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">
+          {/* Gross Revenue Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+              <DollarSign size={80} className="text-emerald-500" />
+            </div>
+            <div className="flex flex-col h-full">
+              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Faturamento Bruto</p>
+              <p className="text-[10px] text-slate-500 mb-2 font-medium">Valor total das vendas deste mês</p>
+              <h3 className="text-2xl md:text-3xl font-black text-emerald-400 drop-shadow-sm">
+                R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-emerald-300 font-bold bg-emerald-500/10 w-fit px-2 py-1 rounded border border-emerald-500/20">
+                TOTAL VENDIDO
+              </div>
+            </div>
           </div>
-          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Total Recebido (Mês)</p>
-          <h3 className="text-2xl md:text-3xl font-black text-emerald-400 mt-2 drop-shadow-sm">
-            R$ {metrics.receivedMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <div className="mt-4 flex items-center text-[10px] text-emerald-300 font-bold bg-emerald-500/10 w-fit px-2 py-1 rounded border border-emerald-500/20">
-            DINHEIRO NO BOLSO
+
+          {/* Total Cost Card (Gastos) */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+              <Wallet size={80} className="text-rose-500" />
+            </div>
+            <div className="flex flex-col h-full">
+              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Custo das Vendas (Gastos)</p>
+              <p className="text-[10px] text-slate-500 mb-2 font-medium">Quanto você pagou pelos produtos vendidos</p>
+              <h3 className="text-2xl md:text-3xl font-black text-rose-400 drop-shadow-sm">
+                R$ {metrics.totalCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-rose-300 font-bold bg-rose-500/10 w-fit px-2 py-1 rounded border border-rose-500/20">
+                GASTO COM MERCADORIA
+              </div>
+            </div>
+          </div>
+
+          {/* Net Profit Card (Ganho) */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-500/10">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+              <TrendingUp size={80} className="text-cyan-500" />
+            </div>
+            <div className="flex flex-col h-full">
+              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Lucro Líquido (Ganho)</p>
+              <p className="text-[10px] text-slate-500 mb-2 font-medium">O seu ganho real após pagar os custos</p>
+              <h3 className={`text-2xl md:text-3xl font-black drop-shadow-sm ${metrics.netProfit >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                R$ {metrics.netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-cyan-300 font-bold">
+                MARGEM DE {metrics.margin.toFixed(1)}%
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Profit Month Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-500/10">
-          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <TrendingUp size={80} className="text-cyan-500" />
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Fluxo de Caixa e Estoque</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Received Month Card (Real Flow) */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-emerald-500/10">
+            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">Entradas em Caixa</p>
+            <h3 className="text-xl font-black text-emerald-400">
+              R$ {metrics.receivedMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <p className="text-[9px] text-slate-500 mt-1">Total recebido este mês</p>
           </div>
-          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Lucro do Mês</p>
-          <h3 className={`text-2xl md:text-3xl font-black mt-2 drop-shadow-sm ${metrics.profitMonth >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
-            R$ {metrics.profitMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <p className="mt-4 text-[10px] text-slate-500 font-bold">MARGEM: {metrics.margin.toFixed(1)}%</p>
-        </div>
 
-        {/* Pending Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-amber-500/10">
-           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <Clock size={80} className="text-amber-500" />
+          {/* Pending Month Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-amber-500/10">
+            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">A Receber (Mês)</p>
+            <h3 className="text-xl font-black text-amber-400">
+              R$ {metrics.pendingMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <p className="text-[9px] text-slate-500 mt-1">Parcelas pendentes do mês</p>
           </div>
-          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">A Receber (Mês)</p>
-          <h3 className="text-2xl md:text-3xl font-black text-amber-400 mt-2 drop-shadow-sm">
-            R$ {metrics.pendingMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <div className="mt-4 text-[10px] text-slate-500 font-bold">
-             DÉBITO PENDENTE
-          </div>
-        </div>
 
-        {/* Total Overall Pending Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
-           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <DollarSign size={80} className="text-rose-500" />
+          {/* Total Overall Pending Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-rose-500/10">
+            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">Devedor Total</p>
+            <h3 className="text-xl font-black text-rose-400">
+              R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <p className="text-[9px] text-slate-500 mt-1">Dívida acumulada de clientes</p>
           </div>
-          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Total devedor</p>
-          <h3 className="text-2xl md:text-3xl font-black text-rose-400 mt-2 drop-shadow-sm">
-            R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <div className="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
-             GERAL ACUMULADO
-          </div>
-        </div>
 
-        {/* Total Stock Investment Card */}
-        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-blue-500/10">
-           <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-            <Package size={80} className="text-blue-500" />
-          </div>
-          <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Investimento Total (Mês)</p>
-          <h3 className="text-2xl md:text-3xl font-black text-blue-400 mt-2 drop-shadow-sm">
-            R$ {(totalStockCost + metrics.totalCost).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </h3>
-          <div className="mt-4 flex items-center text-[10px] text-slate-500 font-bold">
-             VENDIDOS + ESTOQUE
+          {/* Stock Card */}
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-5 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-1 hover:shadow-blue-500/10">
+            <p className="text-slate-400 text-[10px] font-bold tracking-widest uppercase mb-1">Valor em Estoque</p>
+            <h3 className="text-xl font-black text-blue-400">
+              R$ {totalStockCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </h3>
+            <p className="text-[9px] text-slate-500 mt-1">Valor atual em mercadoria</p>
           </div>
         </div>
       </div>
@@ -535,6 +573,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
               </BarChart>
             </ResponsiveContainer>
           </div>
+          <div className="flex justify-center gap-6 mt-4">
+            <div className="flex items-center text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50">
+              <span className="w-2.5 h-2.5 rounded-full mr-2 bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
+              Receita (Total Vendido)
+            </div>
+            <div className="flex items-center text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50">
+              <span className="w-2.5 h-2.5 rounded-full mr-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+              Lucro (Ganho Real)
+            </div>
+          </div>
         </div>
 
         <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
@@ -560,6 +608,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
                 </Pie>
                 <Tooltip 
                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f1f5f9', borderRadius: '12px', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                   itemStyle={{ color: '#f1f5f9' }}
                    formatter={(value: number) => [`R$ ${value.toFixed(2)}`]}
                 />
               </PieChart>
@@ -575,6 +624,77 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
           </div>
         </div>
       </div>
+
+      {/* Info Modal */}
+      {showInfoModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-scale-up">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-gradient-to-r from-slate-900 to-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-cyan-500/20 rounded-xl">
+                  <Info className="text-cyan-400" size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-white">Guia de Cálculos do Painel</h3>
+              </div>
+              <button 
+                onClick={() => setShowInfoModal(false)}
+                className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar space-y-6 text-left">
+              <section className="bg-slate-800/20 p-4 rounded-2xl border border-slate-700/30">
+                <h4 className="text-cyan-400 font-bold mb-1 flex items-center gap-2">
+                  <TrendingUp size={16} /> Lucro Líquido (Ganho Real)
+                </h4>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  É o quanto você ganha de verdade após tirar o custo da mercadoria. <br/>
+                  <span className="text-[10px] text-slate-500 font-mono mt-2 uppercase">Cálculo: (Valor da Venda - Preço de Custo)</span>
+                </p>
+              </section>
+
+              <section className="bg-slate-800/20 p-4 rounded-2xl border border-slate-700/30">
+                <h4 className="text-rose-400 font-bold mb-1 flex items-center gap-2">
+                  <Wallet size={16} /> Custo das Vendas (Gastos)
+                </h4>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Mostra quanto você gastou para comprar os produtos que foram vendidos neste mês.
+                </p>
+                <p className="text-[10px] text-slate-500 font-mono mt-2 uppercase">Cálculo: (Preço de Custo × Quantidade Vendida)</p>
+              </section>
+
+              <section className="bg-slate-800/20 p-4 rounded-2xl border border-slate-700/30">
+                <h4 className="text-emerald-400 font-bold mb-1 flex items-center gap-2">
+                  <CheckCircle size={16} /> Entradas em Caixa (Dinheiro Real)
+                </h4>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Este é o seu <strong>Fluxo de Caixa</strong>. Soma tudo o que entrou de dinheiro vivo este mês (vendas novas + parcelas de vendas antigas pagas).
+                </p>
+              </section>
+
+              <section className="bg-slate-800/20 p-4 rounded-2xl border border-slate-700/30">
+                <h4 className="text-amber-400 font-bold mb-1 flex items-center gap-2">
+                   <Clock size={16} /> Pendentes e Devedores
+                </h4>
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Soma de todas as vendas ou parcelas que o cliente ainda te deve. O sistema separa o total geral acumulado das parcelas que vencem apenas no mês selecionado.
+                </p>
+              </section>
+            </div>
+            
+            <div className="p-6 bg-slate-900 border-t border-slate-800">
+              <button 
+                onClick={() => setShowInfoModal(false)}
+                className="w-full py-4 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold rounded-2xl transition-all shadow-lg active:scale-95"
+              >
+                Entendido, fechar guia
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
