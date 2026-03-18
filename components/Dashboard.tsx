@@ -35,16 +35,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       const doc = new jsPDF();
       const dateStr = new Date().toLocaleDateString('pt-BR');
       
-      // Header
       doc.setFontSize(20);
-      doc.setTextColor(16, 185, 129); // Emerald-500
+      doc.setTextColor(16, 185, 129);
       doc.text('Relatório Financeiro - Kelvin', 14, 22);
       
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Gerado em: ${dateStr}`, 14, 30);
       
-      // Metrics Section
       const totalRevenue = sales.reduce((acc, s) => acc + s.totalPrice, 0);
       const totalCost = sales.reduce((acc, s) => acc + s.totalCost, 0);
       const netProfit = totalRevenue - totalCost;
@@ -62,7 +60,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
         headStyles: { fillColor: [16, 185, 129] }
       });
 
-      // Sales Table
       doc.setFontSize(14);
       doc.setTextColor(0);
       doc.text('Detalhamento de Vendas', 14, (doc as any).lastAutoTable.finalY + 15);
@@ -139,84 +136,32 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     return Array.from(years).sort((a, b) => b - a);
   }, [sales]);
 
-  // --- Metrics Calculation ---
-  const totalStockCost = useMemo(() => {
-    return products.reduce((acc, p) => acc + (p.cost * p.stock), 0);
-  }, [products]);
-
   const metrics = useMemo(() => {
     const totalRevenue = filteredSales.reduce((acc, sale) => acc + sale.totalPrice, 0);
     const totalCost = filteredSales.reduce((acc, sale) => acc + sale.totalCost, 0);
     const netProfit = totalRevenue - totalCost;
     const margin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
     
-    // Calculate REAL RECEIVED amount in THIS specific filtered month
+    // Monthly metrics for charts
     const receivedMonth = filteredSales.reduce((acc, s) => {
-      let amount = 0;
-      const saleDate = new Date(s.date);
-      if (saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear) {
-        amount += (s.downPayment || 0);
-      }
-      if (s.status === PaymentStatus.PAID && !s.customInstallments && saleDate.getMonth() === selectedMonth && saleDate.getFullYear() === selectedYear) {
-        amount += (s.totalPrice - (s.downPayment || 0));
-      }
-      if (s.customInstallments) {
+      let amount = (s.downPayment || 0);
+      if (s.customInstallments && s.customInstallments.length > 0) {
         s.customInstallments.forEach(inst => {
-          if (inst.status === PaymentStatus.PAID && inst.paidAt) {
-            const paidDate = new Date(inst.paidAt);
-            if (paidDate.getMonth() === selectedMonth && paidDate.getFullYear() === selectedYear) {
-              amount += inst.value;
-            }
-          }
+          if (inst.status === PaymentStatus.PAID) amount += inst.value;
         });
+      } else {
+        const remaining = s.totalPrice - (s.downPayment || 0);
+        const installValue = remaining / (s.installments || 1);
+        amount += installValue * (s.paidInstallments || 0);
       }
       return acc + amount;
     }, 0);
 
     const profitMonth = filteredSales.reduce((acc, s) => acc + s.totalProfit, 0);
 
-    // Calculate PENDING amount ONLY for the SELECTED month
-    const pendingMonth = sales.reduce((acc, s) => {
-      let amount = 0;
-      if (s.customInstallments && s.customInstallments.length > 0) {
-        s.customInstallments.forEach(inst => {
-          if (inst.status !== PaymentStatus.PAID) {
-            const dueDate = new Date(inst.dueDate);
-            if (dueDate.getMonth() === selectedMonth && dueDate.getFullYear() === selectedYear) {
-              amount += inst.value;
-            }
-          }
-        });
-      } else if (s.dueDate) {
-        const totalToInstall = s.totalPrice - (s.downPayment || 0);
-        const installmentsCount = s.installments || 1;
-        const installmentValue = totalToInstall / installmentsCount;
-        const baseDate = new Date(s.dueDate);
-        for (let i = 0; i < installmentsCount; i++) {
-          if ((s.paidInstallments || 0) <= i) {
-            const instDate = new Date(baseDate);
-            instDate.setMonth(instDate.getMonth() + i);
-            if (instDate.getMonth() === selectedMonth && instDate.getFullYear() === selectedYear) {
-              amount += installmentValue;
-            }
-          }
-        }
-      }
-      return acc + amount;
-    }, 0);
-    
-    // Calculate pending/overdue sales (GLOBAL)
+    // Alerts logic
     const now = Date.now();
     const pendingSales = sales.filter(s => s.status === PaymentStatus.PENDING);
-    const pendingTotal = pendingSales.reduce((acc, s) => {
-        const totalToInstall = s.totalPrice - (s.downPayment || 0);
-        const installmentValue = totalToInstall / (s.installments || 1);
-        const paidAmount = installmentValue * (s.paidInstallments || 0);
-        const remaining = totalToInstall - paidAmount;
-        return acc + remaining;
-    }, 0);
-
-    // Alerts logic
     let allPendingInstallments: Array<{
       id: string; saleId: string; customerName: string; installmentNumber: number;
       totalInstallments: number; value: number; dueDate: number;
@@ -252,58 +197,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       }
     });
 
-    const overdueInstallments = allPendingInstallments.filter(i => i.dueDate < now);
-    const upcomingInstallments = allPendingInstallments.filter(i => i.dueDate >= now && i.dueDate <= now + (7 * 24 * 60 * 60 * 1000));
-    const alerts = [...overdueInstallments, ...upcomingInstallments].sort((a,b) => a.dueDate - b.dueDate);
+    const alerts = allPendingInstallments
+      .filter(i => i.dueDate < now || (i.dueDate >= now && i.dueDate <= now + (7 * 24 * 60 * 60 * 1000)))
+      .sort((a,b) => a.dueDate - b.dueDate);
 
-    // USER REQUEST: Invested Amount (based on product entry date)
-    const investedItems: Array<{name: string, cost: number, totalStock: number, investedValue: number}> = [];
-    let totalInvested = 0;
-    
-    products.forEach(p => {
-      const createdDate = new Date(p.createdAt || Date.now());
-      if (createdDate.getMonth() === selectedMonth && createdDate.getFullYear() === selectedYear) {
-        const soldCount = sales.reduce((sum, s) => {
-          const item = s.items.find(i => i.productId === p.id);
-          return sum + (item ? item.quantity : 0);
-        }, 0);
-        const totalStock = p.stock + soldCount;
-        const investedValue = p.cost * totalStock;
-        
-        if (investedValue > 0) {
-           totalInvested += investedValue;
-           investedItems.push({
-             name: p.name,
-             cost: p.cost,
-             totalStock: totalStock,
-             investedValue: investedValue
-           });
-        }
+    const receivableMonth = allPendingInstallments.reduce((acc, inst) => {
+      const date = new Date(inst.dueDate);
+      if (date.getMonth() === selectedMonth && date.getFullYear() === selectedYear) {
+        return acc + inst.value;
       }
-    });
+      return acc;
+    }, 0);
+
+    // GLOBAL METRICS (Cumulative)
+    const globalInvested = products.reduce((acc, p) => {
+       const soldCount = sales.reduce((sum, s) => {
+         const item = s.items.find(i => i.productId === p.id);
+         return sum + (item ? item.quantity : 0);
+       }, 0);
+       return acc + (p.cost * (p.stock + soldCount));
+    }, 0);
+
+    const globalReceived = sales.reduce((acc, s) => {
+      let amount = (s.downPayment || 0);
+      if (s.customInstallments && s.customInstallments.length > 0) {
+        s.customInstallments.forEach(inst => {
+          if (inst.status === PaymentStatus.PAID) amount += inst.value;
+        });
+      } else {
+        const remaining = s.totalPrice - (s.downPayment || 0);
+        const installValue = remaining / (s.installments || 1);
+        amount += installValue * (s.paidInstallments || 0);
+      }
+      return acc + amount;
+    }, 0);
+
+    const globalProfit = sales.reduce((acc, s) => {
+      // Calculate how much was received for this specific sale
+      let receivedSale = (s.downPayment || 0);
+      if (s.customInstallments && s.customInstallments.length > 0) {
+        s.customInstallments.forEach(inst => {
+          if (inst.status === PaymentStatus.PAID) receivedSale += inst.value;
+        });
+      } else {
+        const remaining = s.totalPrice - (s.downPayment || 0);
+        const installValue = remaining / (s.installments || 1);
+        receivedSale += installValue * (s.paidInstallments || 0);
+      }
+      
+      // Proportional profit: (Received / Total Price) * Total Profit
+      const proportion = s.totalPrice > 0 ? (receivedSale / s.totalPrice) : 0;
+      return acc + (s.totalProfit * proportion);
+    }, 0);
 
     return { 
       totalRevenue, totalCost, netProfit, margin, alerts, 
-      pendingTotal, receivedMonth, profitMonth, pendingMonth, totalInvested, investedItems 
+      receivedMonth, profitMonth, receivableMonth,
+      globalInvested, globalReceived, globalProfit
     };
   }, [sales, filteredSales, products, selectedMonth, selectedYear]);
 
-  // --- Date Helpers ---
   const getDaysDiff = (dueDate: number) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const target = new Date(dueDate);
     target.setHours(0, 0, 0, 0);
-    
     const diffTime = target.getTime() - today.getTime();
     return Math.round(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // --- Charts Data ---
   const salesByDate = useMemo(() => {
     const grouped: Record<string, any> = {};
     const sortedSales = [...filteredSales].sort((a, b) => a.date - b.date);
-    
     sortedSales.forEach(sale => {
       const date = new Date(sale.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
       if (!grouped[date]) grouped[date] = { date, revenue: 0, profit: 0 };
@@ -315,7 +280,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
   const salesByCategory = useMemo(() => {
     const grouped: Record<string, number> = {};
-    
     filteredSales.forEach(sale => {
       if (sale.type === 'COMMISSION') {
         const cat = 'Comissões';
@@ -329,17 +293,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
         });
       }
     });
-
     return Object.keys(grouped)
       .map(name => ({ name, value: grouped[name] }))
       .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value); 
-  }, [sales, products]);
+  }, [filteredSales, products]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-10">
       
-      {/* Header & Filters */}
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
         <div className="flex flex-col md:flex-row md:items-center gap-6 w-full xl:w-auto">
           <div className="flex items-center gap-3">
@@ -399,7 +361,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
         </div>
       </div>
 
-      {/* Alerts Section - 3D Look */}
       {metrics.alerts.length > 0 && (
          <div className="bg-gradient-to-br from-slate-800 via-slate-900 to-black border-t border-l border-slate-700/50 shadow-[0_10px_40px_-10px_rgba(225,29,72,0.3)] rounded-3xl p-6 relative overflow-hidden animate-fade-in-up transform transition-all hover:-translate-y-1">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-rose-500 to-rose-900"></div>
@@ -413,14 +374,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
                {metrics.alerts.map(inst => {
                  const daysDiff = getDaysDiff(inst.dueDate);
                  const isOverdue = daysDiff < 0;
-                 
                  return (
                    <div key={inst.id} className={`p-4 rounded-xl border border-slate-700/50 flex justify-between items-center transition-all duration-300 hover:scale-[1.02] hover:shadow-lg relative overflow-hidden group ${
                      isOverdue ? 'bg-gradient-to-br from-rose-950/40 to-slate-900' : 'bg-gradient-to-br from-amber-950/40 to-slate-900'
                    }`}>
-                      {/* Glossy effect */}
                       <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                      
                       <div>
                         <div className="flex items-center gap-2 text-slate-200 font-bold mb-1">
                           <User size={16} className="text-slate-500" />
@@ -442,91 +400,78 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
          </div>
       )}
 
-      {/* Simplified KPI Cards */}
       <div className="space-y-4">
-        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Resumo Financeiro</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Total Invested Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-7 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
+        <h3 className="text-sm font-bold text-slate-500 uppercase tracking-tighter ml-1">Indicadores de Desempenho</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-rose-500/10">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
               <Wallet size={70} className="text-rose-500" />
             </div>
             <div className="flex flex-col h-full relative z-10">
-              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total Investido</p>
-              <p className="text-[10px] text-slate-500 mb-3 font-medium">O que saiu do bolso para estoque no mês</p>
-              <h3 className="text-3xl font-black text-rose-400 drop-shadow-sm mb-4">
-                R$ {metrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase mb-1">Total Investido</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">Custo acumulado geral</p>
+              <h3 className="text-2xl font-black text-rose-400 drop-shadow-sm">
+                R$ {metrics.globalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              
-              <div className="max-h-24 overflow-y-auto custom-scrollbar mb-4 mt-2 pr-1">
-                 <p className="text-[9px] text-slate-500 font-bold mb-1.5 uppercase tracking-wider">Composição do Valor:</p>
-                 {metrics.investedItems.length === 0 ? (
-                   <p className="text-[10px] text-slate-600 italic">Nenhum produto cadastrado neste mês.</p>
-                 ) : (
-                   <div className="space-y-1.5 border-l-2 border-slate-700/30 pl-2">
-                     {metrics.investedItems.map((item, idx) => (
-                       <div key={idx} className="flex justify-between items-center text-[10px] group-hover:text-slate-300 transition-colors">
-                          <span className="text-slate-400 truncate max-w-[120px]" title={item.name}>
-                            {item.name} <span className="opacity-50">({item.totalStock}x)</span>
-                          </span>
-                          <span className="text-slate-500 font-medium group-hover:text-rose-400/70 transition-colors">
-                            R$ {item.investedValue.toFixed(2)}
-                          </span>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-              </div>
-
-              <div className="mt-auto flex items-center text-[10px] text-rose-300/80 font-bold px-1">
-                SAÍDA DE CAPITAL (MÊS)
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-rose-300/80 font-bold uppercase tracking-wider">
+                Capital Global
               </div>
             </div>
           </div>
 
-          {/* Total Sold Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-7 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-emerald-500/10">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
-              <DollarSign size={70} className="text-emerald-500" />
+              <CheckCircle size={70} className="text-emerald-500" />
             </div>
-            <div className="flex flex-col h-full">
-              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total Vendido</p>
-              <p className="text-[10px] text-slate-500 mb-3 font-medium">Faturamento bruto das vendas deste mês</p>
-              <h3 className="text-3xl font-black text-emerald-400 drop-shadow-sm">
-                R$ {metrics.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="flex flex-col h-full relative z-10">
+              <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase mb-1">Total Recebido</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">Dinheiro real em caixa</p>
+              <h3 className="text-2xl font-black text-emerald-400 drop-shadow-sm">
+                R$ {metrics.globalReceived.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              <div className="mt-auto pt-5 flex items-center text-[10px] text-emerald-300/80 font-bold">
-                VALOR BRUTO (MÊS)
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-emerald-300/80 font-bold uppercase tracking-wider">
+                Entradas Totais
               </div>
             </div>
           </div>
 
-          {/* Total Pending Card */}
-          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-7 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-amber-500/10">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-cyan-500/10">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
+              <TrendingUp size={70} className="text-cyan-500" />
+            </div>
+            <div className="flex flex-col h-full relative z-10">
+              <p className="text-slate-400 text-[10px] font-black tracking-widest uppercase mb-1">Total de Lucro</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">Lucro real proporcional</p>
+              <h3 className="text-2xl font-black text-cyan-400 drop-shadow-sm">
+                R$ {metrics.globalProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </h3>
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-cyan-300/80 font-bold uppercase tracking-wider">
+                Lucro Líquido
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/10 shadow-2xl relative overflow-hidden group transition-all duration-500 hover:-translate-y-2 hover:shadow-amber-500/10 border-amber-500/20">
             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 group-hover:rotate-12 duration-500">
               <Clock size={70} className="text-amber-500" />
             </div>
-            <div className="flex flex-col h-full">
-              <p className="text-slate-400 text-xs font-bold tracking-widest uppercase mb-1">Valor Total a Receber</p>
-              <p className="text-[10px] text-slate-500 mb-3 font-medium">O que você tem pendente com clientes</p>
-              <h3 className="text-3xl font-black text-amber-400 drop-shadow-sm">
-                R$ {metrics.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            <div className="flex flex-col h-full relative z-10">
+              <p className="text-amber-400 text-[10px] font-black tracking-widest uppercase mb-1">A Receber no Mês</p>
+              <p className="text-[10px] text-slate-500 mb-3 font-medium">Previsão para {months[selectedMonth]}</p>
+              <h3 className="text-2xl font-black text-amber-500 drop-shadow-sm">
+                R$ {metrics.receivableMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </h3>
-              <div className="mt-auto pt-5 flex items-center text-[10px] text-amber-300/80 font-bold uppercase">
-                PENDENTE (Geral)
+              <div className="mt-auto pt-4 flex items-center text-[10px] text-amber-300/80 font-bold uppercase tracking-wider bg-amber-500/10 rounded-lg px-2 py-1 inline-block w-fit">
+                Pendente Mês
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Charts Section - 3D Containers */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
-          {/* Top highlight for 3D effect */}
           <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-slate-600 to-transparent opacity-50"></div>
-          
           <h3 className="text-lg font-bold text-slate-100 mb-6 drop-shadow-md">Tendência de Receita e Lucro</h3>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -569,7 +514,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
 
         <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
           <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-slate-600 to-transparent opacity-50"></div>
-          
           <h3 className="text-lg font-bold text-slate-100 mb-6 drop-shadow-md">Lucro por Categoria</h3>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -607,7 +551,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
         </div>
       </div>
 
-      {/* Info Modal */}
       {showInfoModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-scale-up">

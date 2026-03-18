@@ -45,9 +45,30 @@ export const Products: React.FC<ProductsProps> = ({
     );
   }, [products, searchTerm]);
 
-  const totalStockValue = useMemo(() => {
-    return products.reduce((acc, p) => acc + (p.cost * p.stock), 0);
-  }, [products]);
+  const [showCostTable, setShowCostTable] = useState(false);
+
+  const productMetrics = useMemo(() => {
+    let totalInvested = 0;
+    let totalStockValue = 0;
+    let totalSoldCost = 0;
+
+    products.forEach(p => {
+      const soldCount = sales.reduce((sum, s) => {
+        const item = s.items.find(i => i.productId === p.id);
+        return sum + (item ? item.quantity : 0);
+      }, 0);
+
+      const investment = p.cost * (p.stock + soldCount);
+      const stockVal = p.cost * p.stock;
+      const soldCost = p.cost * soldCount;
+
+      totalInvested += investment;
+      totalStockValue += stockVal;
+      totalSoldCost += soldCost;
+    });
+
+    return { totalInvested, totalStockValue, totalSoldCost };
+  }, [products, sales]);
 
   const handleEdit = (product: Product) => {
     setEditingId(product.id);
@@ -264,21 +285,58 @@ export const Products: React.FC<ProductsProps> = ({
         </div>
       </div>
 
-      {/* Stock Total Value Card */}
-      <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/50 p-6 rounded-2xl shadow-xl flex items-center gap-6 relative overflow-hidden group">
-        <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
-          <Wallet size={120} className="text-emerald-500" />
-        </div>
+      {/* Products KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        <div className="w-16 h-16 rounded-2xl bg-slate-950 flex items-center justify-center border border-slate-800 shadow-inner z-10">
-          <Wallet size={32} className="text-emerald-400" />
-        </div>
-        <div className="z-10">
-          <p className="text-slate-400 text-sm font-bold tracking-widest uppercase mb-1 drop-shadow-sm">Valor em Estoque (Custo)</p>
-          <h3 className="text-4xl font-black text-emerald-400 drop-shadow-md tracking-tight">
-            R$ {totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Total Invested */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/5 shadow-xl relative overflow-hidden group transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <Wallet size={70} className="text-blue-500" />
+          </div>
+          <div className="flex items-center gap-4 mb-3">
+             <div className="p-2 bg-blue-500/20 rounded-xl">
+                <Wallet size={20} className="text-blue-400" />
+             </div>
+             <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Investimento Total</p>
+          </div>
+          <h3 className="text-2xl font-black text-blue-400">
+            R$ {productMetrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </h3>
-          <p className="text-xs text-slate-500 mt-1 font-medium">Soma de todos os produtos físicos disponíveis</p>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium">Custo total de produtos comprados</p>
+        </div>
+
+        {/* Stock Value (Parado) */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/5 shadow-xl relative overflow-hidden group transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <Package size={70} className="text-amber-500" />
+          </div>
+          <div className="flex items-center gap-4 mb-3">
+             <div className="p-2 bg-amber-500/20 rounded-xl">
+                <Package size={20} className="text-amber-400" />
+             </div>
+             <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Produto Parado</p>
+          </div>
+          <h3 className="text-2xl font-black text-amber-400">
+            R$ {productMetrics.totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium">Capital em estoque físico atual</p>
+        </div>
+
+        {/* Sold Value (Custo) */}
+        <div className="bg-gradient-to-br from-slate-800 to-slate-950 p-6 rounded-3xl border-t border-l border-white/5 shadow-xl relative overflow-hidden group transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110">
+            <Layers size={70} className="text-emerald-500" />
+          </div>
+          <div className="flex items-center gap-4 mb-3">
+             <div className="p-2 bg-emerald-500/20 rounded-xl">
+                <Layers size={20} className="text-emerald-400" />
+             </div>
+             <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">Valor Vendido (Custo)</p>
+          </div>
+          <h3 className="text-2xl font-black text-emerald-400">
+            R$ {productMetrics.totalSoldCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          </h3>
+          <p className="text-[10px] text-slate-500 mt-2 font-medium">Investimento que já retornou em vendas</p>
         </div>
       </div>
 
@@ -384,6 +442,77 @@ export const Products: React.FC<ProductsProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Cost List Table - As requested by user */}
+      {products.length > 0 && (
+        <div className="mt-12 space-y-4">
+          <div className="flex items-center justify-between ml-1">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-800 rounded-lg">
+                 <FileText size={18} className="text-slate-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-100">Lista de Custos (Geral)</h3>
+            </div>
+            <button 
+              onClick={() => setShowCostTable(!showCostTable)}
+              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2"
+            >
+              {showCostTable ? 'Ocultar Lista' : 'Ver Lista Completa'}
+              <Layers size={14} className={showCostTable ? 'rotate-180 transition-transform' : 'transition-transform'} />
+            </button>
+          </div>
+          
+          {showCostTable && (
+            <div className="bg-slate-900/50 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-top-4 duration-300">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-800/50">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">Produto</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50">Custo Individual</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700/50 text-right">Total em Estoque</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {[...products].sort((a,b) => a.name.localeCompare(b.name)).map((product) => (
+                    <tr key={product.id} className="hover:bg-slate-800/30 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-slate-200 group-hover:text-emerald-400 transition-colors uppercase">{product.name}</div>
+                        <div className="text-[10px] text-slate-500 font-medium uppercase">{product.category} | {product.stock} un</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-slate-100 font-mono">
+                          R$ {product.cost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-slate-300 font-bold">
+                          R$ {(product.cost * product.stock).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-slate-950/60">
+                  <tr className="border-b border-slate-800/30">
+                    <td className="px-6 py-4 text-slate-400 text-xs uppercase font-bold">Valor em Estoque (Parado)</td>
+                    <td className="px-6 py-4 border-l border-slate-800/30"></td>
+                    <td className="px-6 py-4 text-right text-lg text-amber-500 font-black">
+                      R$ {productMetrics.totalStockValue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-6 py-6 text-slate-200 text-sm uppercase font-black">Investimento Total (Histórico)</td>
+                    <td className="px-6 py-6 border-l border-slate-800/30"></td>
+                    <td className="px-6 py-6 text-right text-2xl text-blue-400 font-black drop-shadow-md">
+                      R$ {productMetrics.totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
