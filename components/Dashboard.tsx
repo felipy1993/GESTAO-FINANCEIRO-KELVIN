@@ -266,17 +266,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
     return Math.round(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  const salesByDate = useMemo(() => {
-    const grouped: Record<string, any> = {};
-    const sortedSales = [...filteredSales].sort((a, b) => a.date - b.date);
-    sortedSales.forEach(sale => {
-      const date = new Date(sale.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-      if (!grouped[date]) grouped[date] = { date, revenue: 0, profit: 0 };
-      grouped[date].revenue += sale.totalPrice;
-      grouped[date].profit += sale.totalProfit;
+  const salesByMonth = useMemo(() => {
+    const grouped = months.map(m => ({ month: m, revenue: 0, cost: 0 }));
+    
+    sales.forEach(sale => {
+      const saleDate = new Date(sale.date);
+      if (saleDate.getFullYear() === selectedYear) {
+         const mIdx = saleDate.getMonth();
+         grouped[mIdx].revenue += sale.totalPrice;
+         grouped[mIdx].cost += sale.totalCost;
+      }
     });
-    return Object.values(grouped); 
-  }, [filteredSales]);
+    return grouped;
+  }, [sales, selectedYear]);
 
   const salesByCategory = useMemo(() => {
     const grouped: Record<string, number> = {};
@@ -472,12 +474,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-gradient-to-br from-slate-900 to-black p-6 rounded-3xl border border-slate-800 shadow-2xl relative">
           <div className="absolute top-0 left-6 right-6 h-[1px] bg-gradient-to-r from-transparent via-slate-600 to-transparent opacity-50"></div>
-          <h3 className="text-lg font-bold text-slate-100 mb-6 drop-shadow-md">Tendência de Receita e Lucro</h3>
+          <h3 className="text-lg font-bold text-slate-100 mb-6 drop-shadow-md">Desempenho por Mês ({selectedYear})</h3>
           <div className="h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={salesByDate}>
+              <BarChart data={salesByMonth}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                <XAxis dataKey="date" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} dy={10} />
+                <XAxis dataKey="month" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} dy={10} tickFormatter={(val) => val.substring(0, 3)} />
                 <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `R$${value}`} />
                 <Tooltip 
                   cursor={{fill: '#1e293b', opacity: 0.4}}
@@ -485,14 +487,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
                   itemStyle={{ color: '#f1f5f9' }}
                   formatter={(value: number) => [`R$ ${value.toFixed(2)}`]}
                 />
-                <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[6, 6, 0, 0]} name="Receita" />
-                <Bar dataKey="profit" fill="url(#colorProfit)" radius={[6, 6, 0, 0]} name="Lucro" />
+                <Bar dataKey="cost" fill="url(#colorCost)" radius={[4, 4, 0, 0]} name="Investimento (Custo)" />
+                <Bar dataKey="revenue" fill="url(#colorRevenue)" radius={[4, 4, 0, 0]} name="Venda (Faturamento)" />
                 <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                  <linearGradient id="colorCost" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3}/>
                   </linearGradient>
-                  <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
                     <stop offset="95%" stopColor="#10b981" stopOpacity={0.3}/>
                   </linearGradient>
@@ -502,12 +504,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ sales, products, showToast
           </div>
           <div className="flex justify-center gap-6 mt-4">
             <div className="flex items-center text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50">
-              <span className="w-2.5 h-2.5 rounded-full mr-2 bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]"></span>
-              Receita (Total Vendido)
+              <span className="w-2.5 h-2.5 rounded-full mr-2 bg-rose-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]"></span>
+              Investimento (Custo)
             </div>
             <div className="flex items-center text-xs text-slate-400 bg-slate-800/50 px-3 py-1.5 rounded-full border border-slate-700/50">
               <span className="w-2.5 h-2.5 rounded-full mr-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
-              Lucro (Ganho Real)
+              Venda (Receita)
             </div>
           </div>
         </div>
