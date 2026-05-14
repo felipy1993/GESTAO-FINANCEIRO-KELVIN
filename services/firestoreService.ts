@@ -21,11 +21,10 @@ export const firestoreService = {
   },
 
   // REAL-TIME FETCHING (Snapshot)
-  subscribeToData: (collectionName: string, callback: (data: any[]) => void) => {
-    const user = auth.currentUser;
-    if (!user) return () => {};
+  subscribeToData: (collectionName: string, userId: string, callback: (data: any[]) => void) => {
+    if (!userId) return () => {};
     
-    const colRef = collection(db, 'users', user.uid, collectionName);
+    const colRef = collection(db, 'users', userId, collectionName);
     return onSnapshot(colRef, (snapshot) => {
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       callback(data);
@@ -35,11 +34,11 @@ export const firestoreService = {
   },
 
   // DATA FETCHING (One-time - for initial or specific needs)
-  loadData: async <T>(collectionName: string): Promise<T[]> => {
-    const user = auth.currentUser;
-    if (!user) return [];
+  loadData: async <T>(collectionName: string, userId?: string): Promise<T[]> => {
+    const uid = userId || auth.currentUser?.uid;
+    if (!uid) return [];
     
-    const colRef = collection(db, 'users', user.uid, collectionName);
+    const colRef = collection(db, 'users', uid, collectionName);
     const snapshot = await getDocs(colRef);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as T[];
   },

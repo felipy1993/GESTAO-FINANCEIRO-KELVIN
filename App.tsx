@@ -56,7 +56,7 @@ function App() {
     // Initial Migration Logic (Run once)
     const runMigration = async () => {
       try {
-        const fCustomers = await firestoreService.loadData<Customer>('customers');
+        const fCustomers = await firestoreService.loadData<Customer>('customers', user.uid);
         const localCustomers = storageService.load(storageService.KEYS.CUSTOMERS, []);
         
         if (fCustomers.length === 0 && localCustomers.length > 0) {
@@ -85,15 +85,15 @@ function App() {
     runMigration();
 
     // Real-time Subscriptions
-    const unsubCustomers = firestoreService.subscribeToData('customers', (data) => setCustomers(data));
-    const unsubProducts = firestoreService.subscribeToData('products', data => setProducts(data));
-    const unsubSales = firestoreService.subscribeToData('sales', data => setSales(data.map(s => ({
+    const unsubCustomers = firestoreService.subscribeToData('customers', user.uid, (data) => setCustomers(data));
+    const unsubProducts = firestoreService.subscribeToData('products', user.uid, data => setProducts(data));
+    const unsubSales = firestoreService.subscribeToData('sales', user.uid, data => setSales(data.map(s => ({
       ...s,
       type: s.type || 'SALE',
       paidInstallments: s.paidInstallments ?? (s.status === PaymentStatus.PAID ? s.installments : 0),
       downPayment: s.downPayment ?? 0
     }))));
-    const unsubApts = firestoreService.subscribeToData('appointments', (data) => setAppointments(data));
+    const unsubApts = firestoreService.subscribeToData('appointments', user.uid, (data) => setAppointments(data));
 
     return () => {
       unsubCustomers();

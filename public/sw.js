@@ -1,4 +1,4 @@
-const CACHE_NAME = 'financeiro-kelvin-v3'; // Incremented version to force update
+const CACHE_NAME = 'financeiro-kelvin-v4'; // Incremented version to force update
 const ASSETS = [
   '/',
   '/index.html',
@@ -32,21 +32,14 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Navigation requests: Network first
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/');
-      })
-    );
-    return;
-  }
+  // Ignorar requisições para extensões do Chrome ou outros esquemas que não sejam http/https
+  if (!event.request.url.startsWith('http')) return;
 
-  // Other assets: Stale-While-Revalidate
+  // Estratégia Network First para tudo, garantindo dados sempre frescos
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        // Only cache successful GET responses
+    fetch(event.request)
+      .then((networkResponse) => {
+        // Se a rede responder, atualiza o cache e retorna
         if (event.request.method === 'GET' && networkResponse && networkResponse.status === 200) {
           const cacheCopy = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
@@ -54,8 +47,17 @@ self.addEventListener('fetch', (event) => {
           });
         }
         return networkResponse;
-      });
-      return response || fetchPromise;
-    })
+      })
+      .catch(() => {
+        // Se a rede falhar (offline), tenta buscar no cache
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) return cachedResponse;
+          
+          // Se for uma navegação e não tiver cache, retorna o index.html principal
+          if (event.request.mode === 'navigate') {
+            return caches.match('/');
+          }
+        });
+      })
   );
 });
